@@ -66,7 +66,6 @@ type Model struct {
 	replyThreadID string // thread ID when replying
 
 	// Review submission state
-	reviewEvent gh.ReviewEvent
 	reviewCursor int // 0=approve, 1=request changes, 2=comment
 
 	statusMsg string

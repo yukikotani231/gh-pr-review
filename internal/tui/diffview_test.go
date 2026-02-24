@@ -1,0 +1,389 @@
+package tui
+
+import (
+	"testing"
+
+	"github.com/yukikotani231/gh-pr-review/internal/diff"
+	gh "github.com/yukikotani231/gh-pr-review/internal/github"
+)
+
+func testDiffLines() []diff.DiffLine {
+	return diff.Parse(`@@ -1,5 +1,6 @@
+ line1
+-old line2
++new line2
++added line3
+ line4
+ line5`)
+}
+
+func testThreads() []gh.ReviewThread {
+	return []gh.ReviewThread{
+		{
+			ID:         "thread1",
+			IsResolved: false,
+			Path:       "test.go",
+			Line:       2, // matches new line2 (NewLineNum=2)
+			DiffSide:   "RIGHT",
+			Comments: []gh.ReviewComment{
+				{ID: "c1", Body: "Fix this", Author: "alice", CreatedAt: "2026-02-24T10:00:00Z"},
+			},
+		},
+		{
+			ID:         "thread2",
+			IsResolved: true,
+			Path:       "test.go",
+			Line:       5, // matches line5 (NewLineNum=5)
+			DiffSide:   "RIGHT",
+			Comments: []gh.ReviewComment{
+				{ID: "c2", Body: "LGTM", Author: "bob", CreatedAt: "2026-02-24T09:00:00Z"},
+				{ID: "c3", Body: "Thanks!", Author: "alice", CreatedAt: "2026-02-24T09:30:00Z"},
+			},
+		},
+	}
+}
+
+func TestDiffView_SetContent(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+
+	lines := testDiffLines()
+	m.SetContent(lines, nil)
+
+	if m.cursor != 0 {
+		t.Errorf("cursor should be 0, got %d", m.cursor)
+	}
+	if len(m.diffLines) != len(lines) {
+		t.Errorf("expected %d lines, got %d", len(lines), len(m.diffLines))
+	}
+}
+
+func TestDiffView_CursorLine(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(testDiffLines(), nil)
+
+	cl := m.CursorLine()
+	if cl == nil {
+		t.Fatal("CursorLine returned nil")
+	}
+	if cl.Type != diff.LineHunkHeader {
+		t.Errorf("expected hunk header at cursor 0, got type %d", cl.Type)
+	}
+}
+
+func TestDiffView_CursorLine_Empty(t *testing.T) {
+	m := NewDiffViewModel()
+	if m.CursorLine() != nil {
+		t.Error("CursorLine should return nil for empty diff")
+	}
+}
+
+func TestDiffView_MoveDown(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(testDiffLines(), nil)
+
+	m.MoveDown()
+	if m.cursor != 1 {
+		t.Errorf("cursor should be 1, got %d", m.cursor)
+	}
+
+	cl := m.CursorLine()
+	if cl.Content != " line1" {
+		t.Errorf("expected ' line1', got %q", cl.Content)
+	}
+}
+
+func TestDiffView_MoveUp(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(testDiffLines(), nil)
+
+	// Can't move up from 0
+	m.MoveUp()
+	if m.cursor != 0 {
+		t.Errorf("cursor should stay 0, got %d", m.cursor)
+	}
+
+	m.MoveDown()
+	m.MoveDown()
+	m.MoveUp()
+	if m.cursor != 1 {
+		t.Errorf("cursor should be 1, got %d", m.cursor)
+	}
+}
+
+func TestDiffView_MoveDownBoundary(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	lines := testDiffLines()
+	m.SetContent(lines, nil)
+
+	for i := 0; i < 100; i++ {
+		m.MoveDown()
+	}
+	if m.cursor != len(lines)-1 {
+		t.Errorf("cursor should be %d, got %d", len(lines)-1, m.cursor)
+	}
+}
+
+func TestDiffView_HalfPageDown(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 4)
+	m.SetContent(testDiffLines(), nil)
+
+	m.HalfPageDown() // moves by 2
+	if m.cursor != 2 {
+		t.Errorf("cursor should be 2, got %d", m.cursor)
+	}
+}
+
+func TestDiffView_HalfPageUp(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 4)
+	m.SetContent(testDiffLines(), nil)
+
+	m.cursor = 4
+	m.HalfPageUp() // moves by 2
+	if m.cursor != 2 {
+		t.Errorf("cursor should be 2, got %d", m.cursor)
+	}
+}
+
+func TestDiffView_HalfPageDown_Empty(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 10)
+	m.SetContent(nil, nil)
+
+	// Should not panic
+	m.HalfPageDown()
+	if m.cursor != 0 {
+		t.Errorf("cursor should be 0 on empty, got %d", m.cursor)
+	}
+}
+
+func TestDiffView_WithThreads(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 40)
+	m.SetContent(testDiffLines(), testThreads())
+
+	// Display rows should be more than diff lines due to inline comments
+	m.buildDisplayRows()
+	if len(m.displayRows) <= len(m.diffLines) {
+		t.Errorf("display rows (%d) should be more than diff lines (%d) when threads exist",
+			len(m.displayRows), len(m.diffLines))
+	}
+}
+
+func TestDiffView_NextThread(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 40)
+	m.SetContent(testDiffLines(), testThreads())
+
+	m.NextThread()
+	if m.threadCursor != 0 {
+		t.Errorf("threadCursor should be 0, got %d", m.threadCursor)
+	}
+
+	ct := m.CursorThread()
+	if ct == nil {
+		t.Fatal("CursorThread returned nil")
+	}
+	if ct.ID != "thread1" {
+		t.Errorf("expected thread1, got %s", ct.ID)
+	}
+
+	m.NextThread()
+	if m.threadCursor != 1 {
+		t.Errorf("threadCursor should be 1, got %d", m.threadCursor)
+	}
+
+	// Wrap around
+	m.NextThread()
+	if m.threadCursor != 0 {
+		t.Errorf("threadCursor should wrap to 0, got %d", m.threadCursor)
+	}
+}
+
+func TestDiffView_PrevThread(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 40)
+	m.SetContent(testDiffLines(), testThreads())
+
+	// First PrevThread should wrap to last
+	m.PrevThread()
+	if m.threadCursor != 1 {
+		t.Errorf("threadCursor should wrap to 1, got %d", m.threadCursor)
+	}
+
+	m.PrevThread()
+	if m.threadCursor != 0 {
+		t.Errorf("threadCursor should be 0, got %d", m.threadCursor)
+	}
+}
+
+func TestDiffView_NextThread_NoThreads(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(testDiffLines(), nil)
+
+	// Should not panic
+	m.NextThread()
+	m.PrevThread()
+
+	if m.CursorThread() != nil {
+		t.Error("CursorThread should be nil when no threads")
+	}
+}
+
+func TestDiffView_CursorThread_OutOfRange(t *testing.T) {
+	m := NewDiffViewModel()
+	m.threadCursor = 5
+	if m.CursorThread() != nil {
+		t.Error("CursorThread should return nil for out-of-range index")
+	}
+}
+
+func TestDiffView_MoveResetsThreadCursor(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 40)
+	m.SetContent(testDiffLines(), testThreads())
+
+	m.NextThread()
+	if m.threadCursor != 0 {
+		t.Fatal("setup failed")
+	}
+
+	m.MoveDown()
+	if m.threadCursor != -1 {
+		t.Errorf("MoveDown should reset threadCursor to -1, got %d", m.threadCursor)
+	}
+
+	m.NextThread()
+	m.MoveUp()
+	if m.threadCursor != -1 {
+		t.Errorf("MoveUp should reset threadCursor to -1, got %d", m.threadCursor)
+	}
+
+	m.NextThread()
+	m.HalfPageDown()
+	if m.threadCursor != -1 {
+		t.Errorf("HalfPageDown should reset threadCursor to -1, got %d", m.threadCursor)
+	}
+}
+
+func TestDiffView_ScrollDown(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 3) // Small viewport
+	m.SetContent(testDiffLines(), nil)
+
+	m.ScrollDown()
+	if m.scrollY != 1 {
+		t.Errorf("scrollY should be 1, got %d", m.scrollY)
+	}
+}
+
+func TestDiffView_ScrollUp(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 3)
+	m.SetContent(testDiffLines(), nil)
+
+	// Can't scroll up from 0
+	m.ScrollUp()
+	if m.scrollY != 0 {
+		t.Errorf("scrollY should stay 0, got %d", m.scrollY)
+	}
+
+	m.ScrollDown()
+	m.ScrollDown()
+	m.ScrollUp()
+	if m.scrollY != 1 {
+		t.Errorf("scrollY should be 1, got %d", m.scrollY)
+	}
+}
+
+func TestDiffView_View_Empty(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(nil, nil)
+
+	view := m.View()
+	if view != "(no diff available)" {
+		t.Errorf("expected no diff message, got %q", view)
+	}
+}
+
+func TestDiffView_View_NonEmpty(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(testDiffLines(), nil)
+
+	view := m.View()
+	if view == "" || view == "(no diff available)" {
+		t.Errorf("expected non-empty view, got %q", view)
+	}
+}
+
+func TestMatchesThread(t *testing.T) {
+	tests := []struct {
+		name     string
+		dl       diff.DiffLine
+		thread   gh.ReviewThread
+		expected bool
+	}{
+		{
+			name:     "RIGHT side matches NewLineNum",
+			dl:       diff.DiffLine{NewLineNum: 10, OldLineNum: 8},
+			thread:   gh.ReviewThread{Line: 10, DiffSide: "RIGHT"},
+			expected: true,
+		},
+		{
+			name:     "RIGHT side no match",
+			dl:       diff.DiffLine{NewLineNum: 10, OldLineNum: 8},
+			thread:   gh.ReviewThread{Line: 8, DiffSide: "RIGHT"},
+			expected: false,
+		},
+		{
+			name:     "LEFT side matches OldLineNum",
+			dl:       diff.DiffLine{NewLineNum: 10, OldLineNum: 8},
+			thread:   gh.ReviewThread{Line: 8, DiffSide: "LEFT"},
+			expected: true,
+		},
+		{
+			name:     "LEFT side no match",
+			dl:       diff.DiffLine{NewLineNum: 10, OldLineNum: 8},
+			thread:   gh.ReviewThread{Line: 10, DiffSide: "LEFT"},
+			expected: false,
+		},
+		{
+			name:     "added line with RIGHT thread",
+			dl:       diff.DiffLine{NewLineNum: 5, OldLineNum: 0, Type: diff.LineAdded},
+			thread:   gh.ReviewThread{Line: 5, DiffSide: "RIGHT"},
+			expected: true,
+		},
+		{
+			name:     "removed line with LEFT thread",
+			dl:       diff.DiffLine{NewLineNum: 0, OldLineNum: 3, Type: diff.LineRemoved},
+			thread:   gh.ReviewThread{Line: 3, DiffSide: "LEFT"},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := matchesThread(tt.dl, tt.thread)
+			if result != tt.expected {
+				t.Errorf("matchesThread() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestFormatTime(t *testing.T) {
+	// Invalid time returns the input string
+	result := formatTime("not-a-time")
+	if result != "not-a-time" {
+		t.Errorf("expected input string for invalid time, got %q", result)
+	}
+}

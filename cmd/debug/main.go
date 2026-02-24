@@ -41,7 +41,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "FAIL: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Println("OK\n")
+	fmt.Println("OK")
+	fmt.Println()
 
 	// Step 3: Fetch PR
 	fmt.Printf("=== Step 3: Fetch PR #%d ===\n", prNumber)

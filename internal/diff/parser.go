@@ -101,13 +101,14 @@ func parseHunkHeader(line string) (oldStart, newStart int) {
 	for _, r := range rangeParts {
 		if strings.HasPrefix(r, "-") {
 			nums := strings.SplitN(r[1:], ",", 2)
-			oldStart, _ = strconv.Atoi(nums[0])
+			oldStart, _ = strconv.Atoi(nums[0]) // falls back to 0 on parse error
 		} else if strings.HasPrefix(r, "+") {
 			nums := strings.SplitN(r[1:], ",", 2)
-			newStart, _ = strconv.Atoi(nums[0])
+			newStart, _ = strconv.Atoi(nums[0]) // falls back to 0 on parse error
 		}
 	}
 
+	// Default to 1 for new/deleted files where the hunk header shows 0
 	if oldStart == 0 {
 		oldStart = 1
 	}

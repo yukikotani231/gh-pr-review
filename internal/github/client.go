@@ -177,7 +177,6 @@ func (c *Client) FetchReviewThreads(number int) ([]ReviewThread, error) {
 							IsResolved bool
 							Path       string
 							Line       int
-							StartLine  int
 							DiffSide   string
 							Comments   struct {
 								Nodes []struct {
@@ -204,15 +203,14 @@ func (c *Client) FetchReviewThreads(number int) ([]ReviewThread, error) {
 				IsResolved: t.IsResolved,
 				Path:       t.Path,
 				Line:       t.Line,
-				StartLine:  t.StartLine,
-				DiffSide:   t.DiffSide,
+				DiffSide:   DiffSide(t.DiffSide),
 			}
-			for _, c := range t.Comments.Nodes {
+			for _, comment := range t.Comments.Nodes {
 				thread.Comments = append(thread.Comments, ReviewComment{
-					ID:        c.ID,
-					Body:      c.Body,
-					Author:    c.Author.Login,
-					CreatedAt: c.CreatedAt,
+					ID:        comment.ID,
+					Body:      comment.Body,
+					Author:    comment.Author.Login,
+					CreatedAt: comment.CreatedAt,
 				})
 			}
 			allThreads = append(allThreads, thread)
@@ -228,13 +226,13 @@ func (c *Client) FetchReviewThreads(number int) ([]ReviewThread, error) {
 	return allThreads, nil
 }
 
-func (c *Client) AddComment(pullRequestID, path, body, side string, line int) error {
+func (c *Client) AddComment(pullRequestID, path, body string, side DiffSide, line int) error {
 	variables := map[string]interface{}{
 		"pullRequestId": pullRequestID,
 		"body":          body,
 		"path":          path,
 		"line":          line,
-		"side":          side,
+		"side":          string(side),
 	}
 	var resp interface{}
 	return c.gql.Do(addReviewCommentMutation, variables, &resp)

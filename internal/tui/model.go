@@ -8,7 +8,6 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/yukikotani231/gh-pr-review/internal/diff"
 	gh "github.com/yukikotani231/gh-pr-review/internal/github"
@@ -45,7 +44,7 @@ type Model struct {
 	pr       *gh.PullRequest
 	prNumber int
 	patches  map[string]string
-	threads  []gh.ReviewThread // all threads for this PR
+	threads  []gh.ReviewThread
 
 	fileList FileListModel
 	diffView DiffViewModel
@@ -56,14 +55,15 @@ type Model struct {
 	height int
 	focus  pane
 
-	// Data fetch tracking
+	// Data fetch tracking (use bool flags, not nil checks, to distinguish
+	// "not yet fetched" from "fetched but zero results")
 	patchesFetched bool
 	threadsFetched bool
 
 	// Input mode state
 	mode          inputMode
 	textInput     textarea.Model
-	replyThreadID string // thread ID when replying
+	replyThreadID string
 
 	// Review submission state
 	reviewCursor int // 0=approve, 1=request changes, 2=comment
@@ -81,15 +81,15 @@ func NewModel(client *gh.Client, prNumber int) Model {
 	ta.SetHeight(3)
 
 	return Model{
-		state:    stateLoading,
-		client:   client,
-		prNumber: prNumber,
-		help:     h,
-		keyMap:   DefaultKeyMap(),
-		focus:    leftPane,
-		diffView: NewDiffViewModel(),
+		state:     stateLoading,
+		client:    client,
+		prNumber:  prNumber,
+		help:      h,
+		keyMap:    DefaultKeyMap(),
+		focus:     leftPane,
+		diffView:  NewDiffViewModel(),
 		textInput: ta,
-		mode:     modeNormal,
+		mode:      modeNormal,
 	}
 }
 
@@ -204,7 +204,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.pr = msg.PR
 		m.patches = msg.Patches
 		m.threads = msg.Threads
-		// Re-sync file list viewed states
 		m.fileList.SetFiles(msg.PR.Files)
 		m.updateDiffView()
 		return m, nil
@@ -214,7 +213,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Handle input modes first
 	switch m.mode {
 	case modeComment, modeReply:
 		return m.handleInputKey(msg)
@@ -222,7 +220,6 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleReviewKey(msg)
 	}
 
-	// Normal mode
 	switch {
 	case key.Matches(msg, m.keyMap.Quit):
 		return m, tea.Quit
@@ -253,7 +250,6 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Pane-specific keys
 	if m.focus == leftPane {
 		return m.handleLeftPaneKey(msg)
 	}
@@ -300,7 +296,6 @@ func (m *Model) handleRightPaneKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keyMap.Reply):
 		t := m.diffView.CursorThread()
 		if t == nil {
-			// Try to find a thread at the current cursor line
 			t = m.findThreadAtCursor()
 		}
 		if t == nil {
@@ -350,11 +345,9 @@ func (m *Model) handleInputKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.mode == modeComment {
 			return m, m.addCommentCmd(body)
 		}
-		// modeReply
 		return m, m.replyToThreadCmd(m.replyThreadID, body)
 	}
 
-	// Forward to textarea
 	var cmd tea.Cmd
 	m.textInput, cmd = m.textInput.Update(msg)
 	return m, cmd
@@ -387,7 +380,6 @@ func (m *Model) handleReviewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case "tab":
-		// Switch focus to/from textarea
 		if m.textInput.Focused() {
 			m.textInput.Blur()
 		} else {
@@ -396,7 +388,6 @@ func (m *Model) handleReviewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// If textarea is focused, forward input
 	if m.textInput.Focused() {
 		var cmd tea.Cmd
 		m.textInput, cmd = m.textInput.Update(msg)
@@ -404,363 +395,4 @@ func (m *Model) handleReviewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
-}
-
-// View renders the entire UI
-func (m Model) View() string {
-	if m.state == stateLoading {
-		return fmt.Sprintf("\n  Loading PR #%d...\n", m.prNumber)
-	}
-	if m.state == stateError {
-		return fmt.Sprintf("\n  Error: %v\n\n  Press q to quit.\n", m.err)
-	}
-
-	header := m.renderHeader()
-	content := m.renderContent()
-
-	var bottom string
-	switch m.mode {
-	case modeComment, modeReply:
-		bottom = m.renderInputArea()
-	case modeReview:
-		bottom = m.renderReviewModal()
-	default:
-		bottom = m.renderStatusBar()
-	}
-
-	return lipgloss.JoinVertical(lipgloss.Left, header, content, bottom)
-}
-
-func (m Model) renderHeader() string {
-	progress := fmt.Sprintf("%d/%d viewed",
-		m.fileList.ViewedCount(), len(m.pr.Files))
-
-	threadCount := m.unresolvedThreadCount()
-	var threadInfo string
-	if threadCount > 0 {
-		threadInfo = fmt.Sprintf(", %d unresolved", threadCount)
-	}
-
-	title := fmt.Sprintf(" PR #%d: %s  (+%d -%d, %d files, %s%s)",
-		m.pr.Number, m.pr.Title,
-		m.pr.Additions, m.pr.Deletions,
-		m.pr.ChangedFiles, progress, threadInfo)
-
-	return headerStyle.Width(m.width).Render(title)
-}
-
-func (m Model) renderContent() string {
-	leftWidth := m.leftPaneWidth()
-	rightWidth := m.rightPaneWidth()
-	contentHeight := m.contentHeight()
-
-	var leftBorder, rightBorder lipgloss.Style
-	if m.focus == leftPane {
-		leftBorder = focusedBorderStyle.Width(leftWidth - 2).Height(contentHeight)
-		rightBorder = unfocusedBorderStyle.Width(rightWidth - 2).Height(contentHeight)
-	} else {
-		leftBorder = unfocusedBorderStyle.Width(leftWidth - 2).Height(contentHeight)
-		rightBorder = focusedBorderStyle.Width(rightWidth - 2).Height(contentHeight)
-	}
-
-	left := leftBorder.Render(m.fileList.View())
-
-	// Show file path above diff
-	var diffContent string
-	if f := m.fileList.SelectedFile(); f != nil {
-		pathLine := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6")).Render(f.Path)
-		diffContent = pathLine + "\n" + m.diffView.View()
-	} else {
-		diffContent = m.diffView.View()
-	}
-	right := rightBorder.Render(diffContent)
-
-	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
-}
-
-func (m Model) renderStatusBar() string {
-	var helpBindings []key.Binding
-	if m.focus == leftPane {
-		helpBindings = []key.Binding{m.keyMap.Up, m.keyMap.Down, m.keyMap.ToggleViewed, m.keyMap.Tab, m.keyMap.SubmitReview, m.keyMap.Quit}
-	} else {
-		helpBindings = []key.Binding{m.keyMap.Up, m.keyMap.Down, m.keyMap.Comment, m.keyMap.Reply, m.keyMap.Resolve, m.keyMap.NextThread, m.keyMap.ToggleViewed, m.keyMap.SubmitReview, m.keyMap.Tab, m.keyMap.Quit}
-	}
-	helpView := m.help.ShortHelpView(helpBindings)
-
-	status := helpView
-	if m.statusMsg != "" {
-		status = m.statusMsg + "  " + helpView
-	}
-
-	if f := m.fileList.SelectedFile(); f != nil {
-		fileInfo := lipgloss.NewStyle().Foreground(lipgloss.Color("245")).Render(f.Path)
-		gap := strings.Repeat(" ", max(1, m.width-lipgloss.Width(status)-lipgloss.Width(fileInfo)-2))
-		status = fileInfo + gap + status
-	}
-
-	return statusBarStyle.Width(m.width).Render(status)
-}
-
-func (m Model) renderInputArea() string {
-	var label string
-	if m.mode == modeComment {
-		label = inputLabelStyle.Render(" New comment (Ctrl+s: submit, Esc: cancel)")
-	} else {
-		label = inputLabelStyle.Render(" Reply (Ctrl+s: submit, Esc: cancel)")
-	}
-	return lipgloss.JoinVertical(lipgloss.Left,
-		label,
-		m.textInput.View(),
-	)
-}
-
-func (m Model) renderReviewModal() string {
-	events := []struct {
-		label string
-		event gh.ReviewEvent
-	}{
-		{"Approve", gh.ReviewEventApprove},
-		{"Request Changes", gh.ReviewEventRequestChanges},
-		{"Comment", gh.ReviewEventComment},
-	}
-
-	var sb strings.Builder
-	sb.WriteString(inputLabelStyle.Render("Submit Review") + "\n\n")
-
-	for i, e := range events {
-		prefix := "  "
-		style := reviewOptionStyle
-		if i == m.reviewCursor {
-			prefix = "> "
-			style = reviewSelectedStyle
-		}
-		sb.WriteString(style.Render(fmt.Sprintf("%s%s", prefix, e.label)))
-		sb.WriteString("\n")
-	}
-
-	sb.WriteString("\n")
-	sb.WriteString(m.textInput.View())
-	sb.WriteString("\n")
-	sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(
-		"  ↑↓: select  Tab: edit body  Ctrl+s: submit  Esc: cancel"))
-
-	return reviewModalStyle.Width(m.width - 4).Render(sb.String())
-}
-
-// --- Data update helpers ---
-
-func (m *Model) updateLayout() {
-	leftWidth := m.leftPaneWidth()
-	contentHeight := m.contentHeight()
-	m.fileList.SetSize(leftWidth-2, contentHeight)
-	rightWidth := m.rightPaneWidth()
-	m.diffView.SetSize(rightWidth-4, contentHeight-1) // -1 for file path line
-	m.textInput.SetWidth(m.width - 4)
-	if m.state == stateReady {
-		m.updateDiffView()
-	}
-}
-
-func (m *Model) updateDiffView() {
-	f := m.fileList.SelectedFile()
-	if f == nil {
-		m.diffView.SetContent(nil, nil)
-		return
-	}
-	patch := m.patches[f.Path]
-	lines := diff.Parse(patch)
-	fileThreads := m.threadsForFile(f.Path)
-	m.diffView.SetContent(lines, fileThreads)
-}
-
-func (m *Model) threadsForFile(path string) []gh.ReviewThread {
-	var result []gh.ReviewThread
-	for _, t := range m.threads {
-		if t.Path == path {
-			result = append(result, t)
-		}
-	}
-	return result
-}
-
-func (m *Model) findThreadAtCursor() *gh.ReviewThread {
-	dl := m.diffView.CursorLine()
-	if dl == nil {
-		return nil
-	}
-	f := m.fileList.SelectedFile()
-	if f == nil {
-		return nil
-	}
-	for i, t := range m.diffView.threads {
-		if matchesThread(*dl, t) {
-			m.diffView.threadCursor = i
-			return &m.diffView.threads[i]
-		}
-	}
-	return nil
-}
-
-func (m Model) unresolvedThreadCount() int {
-	count := 0
-	for _, t := range m.threads {
-		if !t.IsResolved {
-			count++
-		}
-	}
-	return count
-}
-
-// --- Commands ---
-
-func (m Model) fetchPRCmd() tea.Cmd {
-	return func() tea.Msg {
-		pr, err := m.client.FetchPR(m.prNumber)
-		return PRFetchedMsg{PR: pr, Err: err}
-	}
-}
-
-func (m Model) fetchDiffsCmd() tea.Cmd {
-	return func() tea.Msg {
-		patches, err := m.client.FetchDiffs(m.prNumber)
-		return DiffFetchedMsg{Patches: patches, Err: err}
-	}
-}
-
-func (m Model) fetchThreadsCmd() tea.Cmd {
-	return func() tea.Msg {
-		threads, err := m.client.FetchReviewThreads(m.prNumber)
-		return ThreadsFetchedMsg{Threads: threads, Err: err}
-	}
-}
-
-func (m Model) toggleViewedCmd() tea.Cmd {
-	f := m.fileList.SelectedFile()
-	if f == nil {
-		return nil
-	}
-	path := f.Path
-	currentState := f.ViewerViewedState
-	prID := m.pr.ID
-
-	return func() tea.Msg {
-		var newState gh.ViewedState
-		var err error
-		if currentState == gh.ViewedStateViewed {
-			err = m.client.UnmarkFileAsViewed(prID, path)
-			newState = gh.ViewedStateUnviewed
-		} else {
-			err = m.client.MarkFileAsViewed(prID, path)
-			newState = gh.ViewedStateViewed
-		}
-		return ViewedToggledMsg{Path: path, NewState: newState, Err: err}
-	}
-}
-
-func (m Model) addCommentCmd(body string) tea.Cmd {
-	dl := m.diffView.CursorLine()
-	if dl == nil {
-		return nil
-	}
-	f := m.fileList.SelectedFile()
-	if f == nil {
-		return nil
-	}
-	path := f.Path
-	prID := m.pr.ID
-
-	var side string
-	var line int
-	if dl.Type == diff.LineRemoved {
-		side = "LEFT"
-		line = dl.OldLineNum
-	} else {
-		side = "RIGHT"
-		line = dl.NewLineNum
-	}
-
-	return func() tea.Msg {
-		err := m.client.AddComment(prID, path, body, side, line)
-		return CommentAddedMsg{Err: err}
-	}
-}
-
-func (m Model) replyToThreadCmd(threadID, body string) tea.Cmd {
-	return func() tea.Msg {
-		err := m.client.ReplyToThread(threadID, body)
-		return ThreadRepliedMsg{Err: err}
-	}
-}
-
-func (m Model) toggleResolveCmd(t *gh.ReviewThread) tea.Cmd {
-	threadID := t.ID
-	isResolved := t.IsResolved
-	return func() tea.Msg {
-		var err error
-		if isResolved {
-			err = m.client.UnresolveThread(threadID)
-		} else {
-			err = m.client.ResolveThread(threadID)
-		}
-		return ThreadResolvedMsg{
-			ThreadID:   threadID,
-			IsResolved: !isResolved,
-			Err:        err,
-		}
-	}
-}
-
-func (m Model) submitReviewCmd(event gh.ReviewEvent, body string) tea.Cmd {
-	prID := m.pr.ID
-	return func() tea.Msg {
-		err := m.client.SubmitReview(prID, event, body)
-		return ReviewSubmittedMsg{Event: event, Err: err}
-	}
-}
-
-func (m Model) refreshDataCmd() tea.Cmd {
-	return func() tea.Msg {
-		pr, err := m.client.FetchPR(m.prNumber)
-		if err != nil {
-			return DataRefreshedMsg{Err: err}
-		}
-		patches, err := m.client.FetchDiffs(m.prNumber)
-		if err != nil {
-			return DataRefreshedMsg{Err: err}
-		}
-		threads, err := m.client.FetchReviewThreads(m.prNumber)
-		if err != nil {
-			return DataRefreshedMsg{Err: err}
-		}
-		return DataRefreshedMsg{PR: pr, Patches: patches, Threads: threads}
-	}
-}
-
-// --- Layout helpers ---
-
-func (m Model) leftPaneWidth() int {
-	w := m.width * 30 / 100
-	if w < 20 {
-		w = 20
-	}
-	return w
-}
-
-func (m Model) rightPaneWidth() int {
-	return m.width - m.leftPaneWidth()
-}
-
-func (m Model) contentHeight() int {
-	overhead := 3 // header(1) + status(1) + margin(1)
-	switch m.mode {
-	case modeComment, modeReply:
-		overhead = 6 // header(1) + input area(~5)
-	case modeReview:
-		overhead = 14 // header(1) + review modal(~13)
-	}
-	h := m.height - overhead
-	if h < 5 {
-		h = 5
-	}
-	return h
 }

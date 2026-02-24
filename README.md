@@ -67,6 +67,7 @@ gh pr-review <PR number>
 
 - [GitHub CLI](https://cli.github.com/) (`gh`) v2.0+
 - Authenticated via `gh auth login`
+- Must be run from inside a git repository that has a GitHub remote
 
 ## Development
 
@@ -75,7 +76,10 @@ gh pr-review <PR number>
 go build -o gh-pr-review .
 
 # Test
-go test ./...
+go test -race ./...
+
+# Lint
+golangci-lint run ./...
 
 # Install locally
 gh extension install .

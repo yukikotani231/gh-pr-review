@@ -24,7 +24,7 @@ func testThreads() []gh.ReviewThread {
 			IsResolved: false,
 			Path:       "test.go",
 			Line:       2, // matches new line2 (NewLineNum=2)
-			DiffSide:   "RIGHT",
+			DiffSide:   gh.DiffSideRight,
 			Comments: []gh.ReviewComment{
 				{ID: "c1", Body: "Fix this", Author: "alice", CreatedAt: "2026-02-24T10:00:00Z"},
 			},
@@ -34,7 +34,7 @@ func testThreads() []gh.ReviewThread {
 			IsResolved: true,
 			Path:       "test.go",
 			Line:       5, // matches line5 (NewLineNum=5)
-			DiffSide:   "RIGHT",
+			DiffSide:   gh.DiffSideRight,
 			Comments: []gh.ReviewComment{
 				{ID: "c2", Body: "LGTM", Author: "bob", CreatedAt: "2026-02-24T09:00:00Z"},
 				{ID: "c3", Body: "Thanks!", Author: "alice", CreatedAt: "2026-02-24T09:30:00Z"},
@@ -335,37 +335,37 @@ func TestMatchesThread(t *testing.T) {
 		{
 			name:     "RIGHT side matches NewLineNum",
 			dl:       diff.DiffLine{NewLineNum: 10, OldLineNum: 8},
-			thread:   gh.ReviewThread{Line: 10, DiffSide: "RIGHT"},
+			thread:   gh.ReviewThread{Line: 10, DiffSide: gh.DiffSideRight},
 			expected: true,
 		},
 		{
 			name:     "RIGHT side no match",
 			dl:       diff.DiffLine{NewLineNum: 10, OldLineNum: 8},
-			thread:   gh.ReviewThread{Line: 8, DiffSide: "RIGHT"},
+			thread:   gh.ReviewThread{Line: 8, DiffSide: gh.DiffSideRight},
 			expected: false,
 		},
 		{
 			name:     "LEFT side matches OldLineNum",
 			dl:       diff.DiffLine{NewLineNum: 10, OldLineNum: 8},
-			thread:   gh.ReviewThread{Line: 8, DiffSide: "LEFT"},
+			thread:   gh.ReviewThread{Line: 8, DiffSide: gh.DiffSideLeft},
 			expected: true,
 		},
 		{
 			name:     "LEFT side no match",
 			dl:       diff.DiffLine{NewLineNum: 10, OldLineNum: 8},
-			thread:   gh.ReviewThread{Line: 10, DiffSide: "LEFT"},
+			thread:   gh.ReviewThread{Line: 10, DiffSide: gh.DiffSideLeft},
 			expected: false,
 		},
 		{
 			name:     "added line with RIGHT thread",
 			dl:       diff.DiffLine{NewLineNum: 5, OldLineNum: 0, Type: diff.LineAdded},
-			thread:   gh.ReviewThread{Line: 5, DiffSide: "RIGHT"},
+			thread:   gh.ReviewThread{Line: 5, DiffSide: gh.DiffSideRight},
 			expected: true,
 		},
 		{
 			name:     "removed line with LEFT thread",
 			dl:       diff.DiffLine{NewLineNum: 0, OldLineNum: 3, Type: diff.LineRemoved},
-			thread:   gh.ReviewThread{Line: 3, DiffSide: "LEFT"},
+			thread:   gh.ReviewThread{Line: 3, DiffSide: gh.DiffSideLeft},
 			expected: true,
 		},
 	}

@@ -5,7 +5,13 @@ type ViewedState string
 const (
 	ViewedStateViewed   ViewedState = "VIEWED"
 	ViewedStateUnviewed ViewedState = "UNVIEWED"
-	ViewedStateDismissed ViewedState = "DISMISSED"
+)
+
+type DiffSide string
+
+const (
+	DiffSideLeft  DiffSide = "LEFT"
+	DiffSideRight DiffSide = "RIGHT"
 )
 
 type PRFile struct {
@@ -38,8 +44,7 @@ type ReviewThread struct {
 	IsResolved bool
 	Path       string
 	Line       int
-	StartLine  int
-	DiffSide   string
+	DiffSide   DiffSide
 	Comments   []ReviewComment
 }
 

@@ -162,7 +162,7 @@ func (m *DiffViewModel) PrevThread() {
 }
 
 func matchesThread(dl diff.DiffLine, t gh.ReviewThread) bool {
-	if t.DiffSide == "LEFT" {
+	if t.DiffSide == gh.DiffSideLeft {
 		return dl.OldLineNum == t.Line
 	}
 	return dl.NewLineNum == t.Line

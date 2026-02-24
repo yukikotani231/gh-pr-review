@@ -1,2 +1,15 @@
+# Build output
 /gh-pr-review
 /gh-pr-review.exe
+/dist/
+
+# Test
+*.out
+coverage.txt
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

@@ -11,11 +11,8 @@ gh extension install yukikotani231/gh-pr-review
 ## Usage
 
 ```bash
-# Open TUI for a PR (run from inside a git repo)
+# Run from inside a git repo
 gh pr-review <PR number>
-
-# Debug mode (no TUI, prints API responses)
-gh pr-review --debug <PR number>
 ```
 
 ## Key Bindings
@@ -77,12 +74,11 @@ gh pr-review --debug <PR number>
 # Build
 go build -o gh-pr-review .
 
+# Test
+go test ./...
+
 # Install locally
 gh extension install .
-
-# Run debug mode
-cd /path/to/any/repo
-gh pr-review --debug 123
 
 # Uninstall
 gh extension remove pr-review

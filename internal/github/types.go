@@ -1,0 +1,52 @@
+package github
+
+type ViewedState string
+
+const (
+	ViewedStateViewed   ViewedState = "VIEWED"
+	ViewedStateUnviewed ViewedState = "UNVIEWED"
+	ViewedStateDismissed ViewedState = "DISMISSED"
+)
+
+type PRFile struct {
+	Path              string
+	Additions         int
+	Deletions         int
+	ViewerViewedState ViewedState
+	Patch             string
+}
+
+type PullRequest struct {
+	ID           string
+	Title        string
+	Number       int
+	Additions    int
+	Deletions    int
+	ChangedFiles int
+	Files        []PRFile
+}
+
+type ReviewComment struct {
+	ID        string
+	Body      string
+	Author    string
+	CreatedAt string
+}
+
+type ReviewThread struct {
+	ID         string
+	IsResolved bool
+	Path       string
+	Line       int
+	StartLine  int
+	DiffSide   string
+	Comments   []ReviewComment
+}
+
+type ReviewEvent string
+
+const (
+	ReviewEventApprove        ReviewEvent = "APPROVE"
+	ReviewEventRequestChanges ReviewEvent = "REQUEST_CHANGES"
+	ReviewEventComment        ReviewEvent = "COMMENT"
+)

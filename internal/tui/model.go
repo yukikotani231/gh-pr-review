@@ -752,9 +752,10 @@ func (m Model) rightPaneWidth() int {
 
 func (m Model) contentHeight() int {
 	overhead := 3 // header(1) + status(1) + margin(1)
-	if m.mode == modeComment || m.mode == modeReply {
+	switch m.mode {
+	case modeComment, modeReply:
 		overhead = 6 // header(1) + input area(~5)
-	} else if m.mode == modeReview {
+	case modeReview:
 		overhead = 14 // header(1) + review modal(~13)
 	}
 	h := m.height - overhead

@@ -1,6 +1,7 @@
 package github
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -11,8 +12,14 @@ func TestViewedState_Constants(t *testing.T) {
 	if ViewedStateUnviewed != "UNVIEWED" {
 		t.Errorf("ViewedStateUnviewed = %q, want %q", ViewedStateUnviewed, "UNVIEWED")
 	}
-	if ViewedStateDismissed != "DISMISSED" {
-		t.Errorf("ViewedStateDismissed = %q, want %q", ViewedStateDismissed, "DISMISSED")
+}
+
+func TestDiffSide_Constants(t *testing.T) {
+	if DiffSideLeft != "LEFT" {
+		t.Errorf("DiffSideLeft = %q, want %q", DiffSideLeft, "LEFT")
+	}
+	if DiffSideRight != "RIGHT" {
+		t.Errorf("DiffSideRight = %q, want %q", DiffSideRight, "RIGHT")
 	}
 }
 
@@ -59,8 +66,7 @@ func TestReviewThread_Fields(t *testing.T) {
 		IsResolved: false,
 		Path:       "main.go",
 		Line:       10,
-		StartLine:  8,
-		DiffSide:   "RIGHT",
+		DiffSide:   DiffSideRight,
 		Comments: []ReviewComment{
 			{ID: "C_1", Body: "Fix this", Author: "alice", CreatedAt: "2026-01-01T00:00:00Z"},
 			{ID: "C_2", Body: "Done", Author: "bob", CreatedAt: "2026-01-01T01:00:00Z"},
@@ -134,23 +140,10 @@ func TestGraphQLQueryStrings_ContainExpectedFields(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, field := range tt.expected {
-				if !containsString(tt.query, field) {
+				if !strings.Contains(tt.query, field) {
 					t.Errorf("query %s should contain %q", tt.name, field)
 				}
 			}
 		})
 	}
-}
-
-func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && searchString(s, substr)
-}
-
-func searchString(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

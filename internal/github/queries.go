@@ -60,7 +60,6 @@ query($owner: String!, $repo: String!, $number: Int!, $after: String) {
           isResolved
           path
           line
-          startLine
           diffSide
           comments(first: 100) {
             nodes {

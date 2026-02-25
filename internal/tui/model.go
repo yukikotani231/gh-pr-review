@@ -354,6 +354,7 @@ func (m *Model) handleInputKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) handleReviewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Cancel and Submit always take priority
 	switch {
 	case key.Matches(msg, m.keyMap.Cancel):
 		m.mode = modeNormal
@@ -368,18 +369,8 @@ func (m *Model) handleReviewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.submitReviewCmd(event, body)
 	}
 
-	switch msg.String() {
-	case "up", "k":
-		if m.reviewCursor > 0 {
-			m.reviewCursor--
-		}
-		return m, nil
-	case "down", "j":
-		if m.reviewCursor < 2 {
-			m.reviewCursor++
-		}
-		return m, nil
-	case "tab":
+	// Tab switches focus between review options and textarea
+	if msg.String() == "tab" {
 		if m.textInput.Focused() {
 			m.textInput.Blur()
 		} else {
@@ -388,10 +379,23 @@ func (m *Model) handleReviewKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// When textarea is focused, forward all other input to it
 	if m.textInput.Focused() {
 		var cmd tea.Cmd
 		m.textInput, cmd = m.textInput.Update(msg)
 		return m, cmd
+	}
+
+	// Review option navigation (only when textarea is NOT focused)
+	switch msg.String() {
+	case "up", "k":
+		if m.reviewCursor > 0 {
+			m.reviewCursor--
+		}
+	case "down", "j":
+		if m.reviewCursor < 2 {
+			m.reviewCursor++
+		}
 	}
 
 	return m, nil

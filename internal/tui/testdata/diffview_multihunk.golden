@@ -1,0 +1,11 @@
+@@ -1,4 +1,5 @@
+   1    1  package main
+   2    2 
+        3 +import "fmt"
+   3    4  func main() {
+   4    5  	println("hello")
+@@ -10,3 +11,4 @@
+  10   11  func helper() {
+  11   12  	return
+       13 +    // TODO: implement
+  12   14  }

@@ -316,12 +316,15 @@ func (m *DiffViewModel) View() string {
 	return sb.String()
 }
 
+// timeNow is used instead of time.Now so tests can inject a fixed time.
+var timeNow = time.Now
+
 func formatTime(isoTime string) string {
 	t, err := time.Parse(time.RFC3339, isoTime)
 	if err != nil {
 		return isoTime
 	}
-	d := time.Since(t)
+	d := timeNow().Sub(t)
 	switch {
 	case d < time.Minute:
 		return "just now"

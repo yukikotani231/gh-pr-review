@@ -13,12 +13,16 @@ import (
 	gh "github.com/yukikotani231/gh-pr-review/internal/github"
 )
 
-var update = flag.Bool("update", false, "update golden files")
+// shouldUpdate checks the -update flag (registered by teatest or ourselves).
+func shouldUpdate() bool {
+	f := flag.CommandLine.Lookup("update")
+	return f != nil && f.Value.String() == "true"
+}
 
 func assertGolden(t *testing.T, name, actual string) {
 	t.Helper()
 	path := filepath.Join("testdata", name+".golden")
-	if *update {
+	if shouldUpdate() {
 		if err := os.MkdirAll("testdata", 0o755); err != nil {
 			t.Fatal(err)
 		}

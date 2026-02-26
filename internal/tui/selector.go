@@ -134,6 +134,9 @@ func (m SelectorModel) Quitting() bool {
 }
 
 func (m SelectorModel) fetchOpenPRsCmd() tea.Cmd {
+	if m.client == nil {
+		return nil
+	}
 	return func() tea.Msg {
 		prs, err := m.client.FetchOpenPRs()
 		return openPRsFetchedMsg{PRs: prs, Err: err}

@@ -1,7 +1,0 @@
-@@ -1,5 +1,6 @@
-   1    1  line1
-   2      -old line2
-        2 +new line2
-        3 +added line3
-   3    4  line4
-   4    5  line5

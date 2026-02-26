@@ -1,5 +1,0 @@
-[ ] main.go                                      +10 -5
-[✓] auth.go                                      +20 -3
-[ ] util.go                                      +5 -0
-[ ] go.mod                                       +2 -1
-[✓] go.sum                                       +50 -10

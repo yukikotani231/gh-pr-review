@@ -116,7 +116,12 @@ func (m *FileListModel) View() string {
 		}
 
 		name := filepath.Base(f.Path)
-		maxNameLen := m.width - 16
+		addStr := fmt.Sprintf("+%d", f.Additions)
+		delStr := fmt.Sprintf(" -%d", f.Deletions)
+		statWidth := len(addStr) + len(delStr)
+
+		// layout: "[✓] " (4) + name (maxNameLen) + " " (1) + stat (statWidth)
+		maxNameLen := m.width - 5 - statWidth
 		if maxNameLen < 10 {
 			maxNameLen = 10
 		}
@@ -125,8 +130,8 @@ func (m *FileListModel) View() string {
 		}
 
 		stat := fmt.Sprintf("%s%s",
-			addStyle.Render(fmt.Sprintf("+%d", f.Additions)),
-			delStyle.Render(fmt.Sprintf(" -%d", f.Deletions)),
+			addStyle.Render(addStr),
+			delStyle.Render(delStr),
 		)
 
 		line := fmt.Sprintf("%s %-*s %s", check, maxNameLen, name, stat)

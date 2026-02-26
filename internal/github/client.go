@@ -6,9 +6,19 @@ import (
 	"github.com/cli/go-gh/v2/pkg/api"
 )
 
+// graphQLDoer はGraphQL APIの呼び出しに必要なメソッドを定義する
+type graphQLDoer interface {
+	Do(query string, variables map[string]interface{}, response interface{}) error
+}
+
+// restGetter はREST APIの呼び出しに必要なメソッドを定義する
+type restGetter interface {
+	Get(path string, response interface{}) error
+}
+
 type Client struct {
-	gql   *api.GraphQLClient
-	rest  *api.RESTClient
+	gql   graphQLDoer
+	rest  restGetter
 	owner string
 	repo  string
 }

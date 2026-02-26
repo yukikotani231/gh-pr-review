@@ -94,6 +94,6 @@ func runCompletion() {
 	}
 
 	for _, pr := range prs {
-		fmt.Fprintf(os.Stdout, "%d\t#%d: %s (@%s)\n", pr.Number, pr.Number, pr.Title, pr.Author)
+		_, _ = fmt.Fprintf(os.Stdout, "%d\t#%d: %s (@%s)\n", pr.Number, pr.Number, pr.Title, pr.Author)
 	}
 }

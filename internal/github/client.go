@@ -263,6 +263,62 @@ func (c *Client) UnresolveThread(threadID string) error {
 	return c.gql.Do(unresolveThreadMutation, variables, &resp)
 }
 
+func (c *Client) FetchOpenPRs() ([]PRListItem, error) {
+	var allPRs []PRListItem
+	var cursor *string
+
+	for {
+		variables := map[string]interface{}{
+			"owner": c.owner,
+			"repo":  c.repo,
+		}
+		if cursor != nil {
+			variables["after"] = *cursor
+		}
+
+		var resp struct {
+			Repository struct {
+				PullRequests struct {
+					PageInfo struct {
+						HasNextPage bool
+						EndCursor   string
+					}
+					Nodes []struct {
+						Number    int
+						Title     string
+						IsDraft   bool
+						UpdatedAt string
+						Author    struct{ Login string }
+					}
+				}
+			}
+		}
+
+		err := c.gql.Do(openPRsQuery, variables, &resp)
+		if err != nil {
+			return nil, fmt.Errorf("オープンPR一覧の取得に失敗: %w", err)
+		}
+
+		for _, pr := range resp.Repository.PullRequests.Nodes {
+			allPRs = append(allPRs, PRListItem{
+				Number:    pr.Number,
+				Title:     pr.Title,
+				Author:    pr.Author.Login,
+				UpdatedAt: pr.UpdatedAt,
+				IsDraft:   pr.IsDraft,
+			})
+		}
+
+		if !resp.Repository.PullRequests.PageInfo.HasNextPage {
+			break
+		}
+		endCursor := resp.Repository.PullRequests.PageInfo.EndCursor
+		cursor = &endCursor
+	}
+
+	return allPRs, nil
+}
+
 func (c *Client) SubmitReview(pullRequestID string, event ReviewEvent, body string) error {
 	variables := map[string]interface{}{
 		"pullRequestId": pullRequestID,

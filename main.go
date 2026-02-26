@@ -13,15 +13,21 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintf(os.Stderr, "Usage: gh pr-review <PR number>\n")
-		os.Exit(1)
+	// シェル補完モード
+	if len(os.Args) >= 2 && os.Args[1] == "--__complete" {
+		runCompletion()
+		return
 	}
 
-	prNumber, err := strconv.Atoi(os.Args[1])
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: PR number must be an integer: %v\n", err)
-		os.Exit(1)
+	var prNumber int
+
+	if len(os.Args) >= 2 {
+		n, err := strconv.Atoi(os.Args[1])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: PR number must be an integer: %v\n", err)
+			os.Exit(1)
+		}
+		prNumber = n
 	}
 
 	repo, err := repository.Current()
@@ -37,10 +43,57 @@ func main() {
 		os.Exit(1)
 	}
 
+	// PR番号が未指定の場合、選択UIを表示
+	if prNumber == 0 {
+		prNumber, err = runSelector(client)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		if prNumber == 0 {
+			os.Exit(0)
+		}
+	}
+
 	model := tui.NewModel(client, prNumber)
 	p := tea.NewProgram(model, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
+	}
+}
+
+func runSelector(client *gh.Client) (int, error) {
+	selector := tui.NewSelectorModel(client)
+	p := tea.NewProgram(selector, tea.WithAltScreen())
+	finalModel, err := p.Run()
+	if err != nil {
+		return 0, err
+	}
+	m := finalModel.(tui.SelectorModel)
+	if m.Quitting() {
+		return 0, nil
+	}
+	return m.Selected(), nil
+}
+
+func runCompletion() {
+	repo, err := repository.Current()
+	if err != nil {
+		return
+	}
+
+	client, err := gh.NewClient(repo.Owner, repo.Name)
+	if err != nil {
+		return
+	}
+
+	prs, err := client.FetchOpenPRs()
+	if err != nil {
+		return
+	}
+
+	for _, pr := range prs {
+		fmt.Fprintf(os.Stdout, "%d\t#%d: %s (@%s)\n", pr.Number, pr.Number, pr.Title, pr.Author)
 	}
 }

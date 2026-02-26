@@ -84,6 +84,25 @@ func TestReviewThread_Fields(t *testing.T) {
 	}
 }
 
+func TestPRListItem_Fields(t *testing.T) {
+	item := PRListItem{
+		Number:    42,
+		Title:     "Fix bug",
+		Author:    "alice",
+		UpdatedAt: "2026-01-01T00:00:00Z",
+		IsDraft:   true,
+	}
+	if item.Number != 42 {
+		t.Errorf("Number = %d, want 42", item.Number)
+	}
+	if item.Author != "alice" {
+		t.Errorf("Author = %q, want alice", item.Author)
+	}
+	if !item.IsDraft {
+		t.Error("IsDraft should be true")
+	}
+}
+
 func TestGraphQLQueryStrings_NonEmpty(t *testing.T) {
 	queries := map[string]string{
 		"prFilesQuery":              prFilesQuery,
@@ -95,6 +114,7 @@ func TestGraphQLQueryStrings_NonEmpty(t *testing.T) {
 		"resolveThreadMutation":     resolveThreadMutation,
 		"unresolveThreadMutation":   unresolveThreadMutation,
 		"submitReviewMutation":      submitReviewMutation,
+		"openPRsQuery":              openPRsQuery,
 	}
 
 	for name, q := range queries {
@@ -134,6 +154,11 @@ func TestGraphQLQueryStrings_ContainExpectedFields(t *testing.T) {
 			"submitReviewMutation",
 			submitReviewMutation,
 			[]string{"addPullRequestReview", "event"},
+		},
+		{
+			"openPRsQuery",
+			openPRsQuery,
+			[]string{"pullRequests", "OPEN", "number", "title", "isDraft", "author", "login", "updatedAt"},
 		},
 	}
 

@@ -132,6 +132,28 @@ mutation($threadId: ID!) {
 }
 `
 
+const openPRsQuery = `
+query($owner: String!, $repo: String!, $after: String) {
+  repository(owner: $owner, name: $repo) {
+    pullRequests(first: 100, after: $after, states: OPEN, orderBy: {field: UPDATED_AT, direction: DESC}) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        number
+        title
+        isDraft
+        updatedAt
+        author {
+          login
+        }
+      }
+    }
+  }
+}
+`
+
 const submitReviewMutation = `
 mutation($pullRequestId: ID!, $event: PullRequestReviewEvent!, $body: String) {
   addPullRequestReview(input: {

@@ -65,3 +65,8 @@ This is a GitHub CLI extension (`gh pr-review <PR number>`) built with Go and th
 - `DiffSide` is a typed constant (`gh.DiffSideLeft`/`gh.DiffSideRight`), not a raw string
 - `DiffViewModel.buildDisplayRows()` maps diff lines + thread comments into flat `displayRow` slices for rendering; thread comments have `diffLineIdx = -1`
 - `matchesThread()` uses `DiffSide` to match threads to old vs new line numbers
+
+## PR マージ前の確認事項
+
+- ブランチ保護ルールにより、未解決のレビュースレッドがあるとマージできない
+- マージ前に `~/scripts/pr_review_threads.sh list <PR番号> yukikotani231/gh-pr-review` で未解決スレッドを確認し、対応済みのものは resolve すること

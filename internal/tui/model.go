@@ -35,16 +35,17 @@ const (
 	modeComment           // Adding a new comment on a diff line
 	modeReply             // Replying to an existing thread
 	modeReview            // Review submission dialog
+	modeHelp              // Full keybinding help overlay
 )
 
 type Model struct {
 	state    state
 	err      error
-	client   *gh.Client
-	pr       *gh.PullRequest
-	prNumber int
-	patches  map[string]string
-	threads  []gh.ReviewThread
+	client     *gh.Client
+	pr         *gh.PullRequest
+	prNumber   int
+	diffResult *gh.DiffResult
+	threads    []gh.ReviewThread
 
 	fileList FileListModel
 	diffView DiffViewModel
@@ -69,6 +70,15 @@ type Model struct {
 	reviewCursor int // 0=approve, 1=request changes, 2=comment
 
 	statusMsg string
+
+	// Scroll position cache per file
+	scrollCache map[string]scrollPosition
+}
+
+type scrollPosition struct {
+	cursor       int
+	scrollY      int
+	threadCursor int
 }
 
 func NewModel(client *gh.Client, prNumber int) Model {
@@ -81,15 +91,16 @@ func NewModel(client *gh.Client, prNumber int) Model {
 	ta.SetHeight(3)
 
 	return Model{
-		state:     stateLoading,
-		client:    client,
-		prNumber:  prNumber,
-		help:      h,
-		keyMap:    DefaultKeyMap(),
-		focus:     leftPane,
-		diffView:  NewDiffViewModel(),
-		textInput: ta,
-		mode:      modeNormal,
+		state:       stateLoading,
+		client:      client,
+		prNumber:    prNumber,
+		help:        h,
+		keyMap:      DefaultKeyMap(),
+		focus:       leftPane,
+		diffView:    NewDiffViewModel(),
+		textInput:   ta,
+		mode:        modeNormal,
+		scrollCache: make(map[string]scrollPosition),
 	}
 }
 
@@ -123,10 +134,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Err != nil {
 			m.statusMsg = errorStyle.Render(fmt.Sprintf("Diff fetch error: %v", msg.Err))
 		} else {
-			m.patches = msg.Patches
+			m.diffResult = msg.Result
 		}
 		if m.threadsFetched {
 			m.state = stateReady
+			m.fileList.MergeStatuses(m.diffResult)
 			m.updateDiffView()
 		}
 		return m, nil
@@ -140,6 +152,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.patchesFetched {
 			m.state = stateReady
+			m.fileList.MergeStatuses(m.diffResult)
 			m.updateDiffView()
 		}
 		return m, nil
@@ -196,15 +209,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.statusMsg = fmt.Sprintf("Review submitted: %s", msg.Event)
 		return m, nil
 
+	case openedInBrowserMsg:
+		if msg.Err != nil {
+			m.statusMsg = errorStyle.Render(fmt.Sprintf("Browser error: %v", msg.Err))
+		} else {
+			m.statusMsg = "Opened in browser"
+		}
+		return m, nil
+
 	case DataRefreshedMsg:
 		if msg.Err != nil {
 			m.statusMsg = errorStyle.Render(fmt.Sprintf("Refresh error: %v", msg.Err))
 			return m, nil
 		}
 		m.pr = msg.PR
-		m.patches = msg.Patches
+		m.diffResult = msg.Result
 		m.threads = msg.Threads
 		m.fileList.SetFiles(msg.PR.Files)
+		m.fileList.MergeStatuses(m.diffResult)
 		m.updateDiffView()
 		return m, nil
 	}
@@ -218,9 +240,15 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleInputKey(msg)
 	case modeReview:
 		return m.handleReviewKey(msg)
+	case modeHelp:
+		return m.handleHelpKey(msg)
 	}
 
 	switch {
+	case key.Matches(msg, m.keyMap.Help):
+		m.mode = modeHelp
+		return m, nil
+
 	case key.Matches(msg, m.keyMap.Quit):
 		return m, tea.Quit
 
@@ -248,6 +276,32 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.textInput.Placeholder = "Review body (optional)..."
 		m.textInput.Focus()
 		return m, nil
+
+	case key.Matches(msg, m.keyMap.NextUnviewed):
+		if m.state != stateReady {
+			return m, nil
+		}
+		if !m.fileList.MoveToNextUnviewed() {
+			m.statusMsg = "All files viewed"
+		}
+		m.updateDiffView()
+		return m, nil
+
+	case key.Matches(msg, m.keyMap.PrevUnviewed):
+		if m.state != stateReady {
+			return m, nil
+		}
+		if !m.fileList.MoveToPrevUnviewed() {
+			m.statusMsg = "All files viewed"
+		}
+		m.updateDiffView()
+		return m, nil
+
+	case key.Matches(msg, m.keyMap.OpenInBrowser):
+		if m.state != stateReady {
+			return m, nil
+		}
+		return m, m.openInBrowserCmd()
 	}
 
 	if m.focus == leftPane {
@@ -323,8 +377,22 @@ func (m *Model) handleRightPaneKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.diffView.NextThread()
 	case key.Matches(msg, m.keyMap.PrevThread):
 		m.diffView.PrevThread()
+
+	case key.Matches(msg, m.keyMap.NextHunk):
+		m.diffView.NextHunk()
+	case key.Matches(msg, m.keyMap.PrevHunk):
+		m.diffView.PrevHunk()
 	}
 
+	return m, nil
+}
+
+func (m *Model) handleHelpKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, m.keyMap.Help), key.Matches(msg, m.keyMap.Cancel),
+		key.Matches(msg, m.keyMap.Quit):
+		m.mode = modeNormal
+	}
 	return m, nil
 }
 

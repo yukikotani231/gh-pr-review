@@ -1,6 +1,9 @@
 package tui
 
 import (
+	"fmt"
+	"os/exec"
+
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/yukikotani231/gh-pr-review/internal/diff"
@@ -16,8 +19,8 @@ func (m Model) fetchPRCmd() tea.Cmd {
 
 func (m Model) fetchDiffsCmd() tea.Cmd {
 	return func() tea.Msg {
-		patches, err := m.client.FetchDiffs(m.prNumber)
-		return DiffFetchedMsg{Patches: patches, Err: err}
+		result, err := m.client.FetchDiffs(m.prNumber)
+		return DiffFetchedMsg{Result: result, Err: err}
 	}
 }
 
@@ -118,7 +121,7 @@ func (m Model) refreshDataCmd() tea.Cmd {
 		if err != nil {
 			return DataRefreshedMsg{Err: err}
 		}
-		patches, err := m.client.FetchDiffs(m.prNumber)
+		result, err := m.client.FetchDiffs(m.prNumber)
 		if err != nil {
 			return DataRefreshedMsg{Err: err}
 		}
@@ -126,7 +129,22 @@ func (m Model) refreshDataCmd() tea.Cmd {
 		if err != nil {
 			return DataRefreshedMsg{Err: err}
 		}
-		return DataRefreshedMsg{PR: pr, Patches: patches, Threads: threads}
+		return DataRefreshedMsg{PR: pr, Result: result, Threads: threads}
+	}
+}
+
+func (m Model) openInBrowserCmd() tea.Cmd {
+	f := m.fileList.SelectedFile()
+	if f == nil {
+		return nil
+	}
+	url := fmt.Sprintf("https://github.com/%s/%s/pull/%d/files",
+		m.client.Owner(), m.client.Repo(), m.prNumber)
+
+	return func() tea.Msg {
+		cmd := exec.Command("open", url)
+		err := cmd.Start()
+		return openedInBrowserMsg{Err: err}
 	}
 }
 
@@ -145,15 +163,51 @@ func (m *Model) updateLayout() {
 }
 
 func (m *Model) updateDiffView() {
+	// Save scroll position of previously selected file
+	m.saveScrollPosition()
+
 	f := m.fileList.SelectedFile()
 	if f == nil {
 		m.diffView.SetContent(nil, nil)
 		return
 	}
-	patch := m.patches[f.Path]
+	var patch string
+	if m.diffResult != nil {
+		patch = m.diffResult.Patches[f.Path]
+	}
 	lines := diff.Parse(patch)
 	fileThreads := m.threadsForFile(f.Path)
 	m.diffView.SetContent(lines, fileThreads)
+
+	// Restore scroll position if previously visited
+	m.restoreScrollPosition(f.Path)
+}
+
+func (m *Model) saveScrollPosition() {
+	f := m.fileList.SelectedFile()
+	if f == nil || len(m.diffView.diffLines) == 0 {
+		return
+	}
+	m.scrollCache[f.Path] = scrollPosition{
+		cursor:       m.diffView.cursor,
+		scrollY:      m.diffView.scrollY,
+		threadCursor: m.diffView.threadCursor,
+	}
+}
+
+func (m *Model) restoreScrollPosition(path string) {
+	pos, ok := m.scrollCache[path]
+	if !ok {
+		return
+	}
+	if pos.cursor >= len(m.diffView.diffLines) {
+		pos.cursor = max(0, len(m.diffView.diffLines)-1)
+	}
+	m.diffView.cursor = pos.cursor
+	m.diffView.scrollY = pos.scrollY
+	m.diffView.threadCursor = pos.threadCursor
+	m.diffView.buildDisplayRows()
+	m.diffView.ensureVisible()
 }
 
 func (m *Model) threadsForFile(path string) []gh.ReviewThread {

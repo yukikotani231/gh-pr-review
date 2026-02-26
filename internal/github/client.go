@@ -101,14 +101,23 @@ func (c *Client) FetchPR(number int) (*PullRequest, error) {
 	return pr, nil
 }
 
-func (c *Client) FetchDiffs(number int) (map[string]string, error) {
-	patches := make(map[string]string)
+func (c *Client) Owner() string { return c.owner }
+func (c *Client) Repo() string  { return c.repo }
+
+func (c *Client) FetchDiffs(number int) (*DiffResult, error) {
+	result := &DiffResult{
+		Patches:           make(map[string]string),
+		FileStatuses:      make(map[string]FileStatus),
+		PreviousFilenames: make(map[string]string),
+	}
 	page := 1
 
 	for {
 		var files []struct {
-			Filename string `json:"filename"`
-			Patch    string `json:"patch"`
+			Filename         string `json:"filename"`
+			Patch            string `json:"patch"`
+			Status           string `json:"status"`
+			PreviousFilename string `json:"previous_filename"`
 		}
 
 		path := fmt.Sprintf("repos/%s/%s/pulls/%d/files?per_page=100&page=%d",
@@ -123,13 +132,17 @@ func (c *Client) FetchDiffs(number int) (map[string]string, error) {
 		}
 
 		for _, f := range files {
-			patches[f.Filename] = f.Patch
+			result.Patches[f.Filename] = f.Patch
+			result.FileStatuses[f.Filename] = FileStatus(f.Status)
+			if f.PreviousFilename != "" {
+				result.PreviousFilenames[f.Filename] = f.PreviousFilename
+			}
 		}
 
 		page++
 	}
 
-	return patches, nil
+	return result, nil
 }
 
 func (c *Client) MarkFileAsViewed(pullRequestID, path string) error {

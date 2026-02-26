@@ -59,4 +59,18 @@ var (
 
 	errorStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("1")).Bold(true)
+
+	modifiedStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("3"))
+
+	renamedStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("4"))
+
+	copiedStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("5"))
+
+	helpOverlayStyle = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("62")).
+				Padding(1, 2)
 )

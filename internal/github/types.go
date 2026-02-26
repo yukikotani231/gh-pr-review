@@ -14,12 +14,30 @@ const (
 	DiffSideRight DiffSide = "RIGHT"
 )
 
+type FileStatus string
+
+const (
+	FileStatusAdded    FileStatus = "added"
+	FileStatusModified FileStatus = "modified"
+	FileStatusRemoved  FileStatus = "removed"
+	FileStatusRenamed  FileStatus = "renamed"
+	FileStatusCopied   FileStatus = "copied"
+)
+
 type PRFile struct {
 	Path              string
 	Additions         int
 	Deletions         int
 	ViewerViewedState ViewedState
 	Patch             string
+	Status            FileStatus
+	PreviousFilename  string
+}
+
+type DiffResult struct {
+	Patches           map[string]string
+	FileStatuses      map[string]FileStatus
+	PreviousFilenames map[string]string
 }
 
 type PullRequest struct {

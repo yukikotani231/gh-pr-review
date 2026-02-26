@@ -161,6 +161,47 @@ func (m *DiffViewModel) PrevThread() {
 	}
 }
 
+// NextHunk moves cursor to the next hunk header.
+func (m *DiffViewModel) NextHunk() {
+	for i := m.cursor + 1; i < len(m.diffLines); i++ {
+		if m.diffLines[i].Type == diff.LineHunkHeader {
+			m.cursor = i
+			m.threadCursor = -1
+			m.ensureVisible()
+			return
+		}
+	}
+}
+
+// PrevHunk moves cursor to the previous hunk header.
+func (m *DiffViewModel) PrevHunk() {
+	for i := m.cursor - 1; i >= 0; i-- {
+		if m.diffLines[i].Type == diff.LineHunkHeader {
+			m.cursor = i
+			m.threadCursor = -1
+			m.ensureVisible()
+			return
+		}
+	}
+}
+
+// HunkPosition returns (current, total) where current is 1-based index
+// of the hunk containing the cursor line. Returns (0, total) if cursor
+// is before the first hunk.
+func (m *DiffViewModel) HunkPosition() (int, int) {
+	current := 0
+	total := 0
+	for i, dl := range m.diffLines {
+		if dl.Type == diff.LineHunkHeader {
+			total++
+			if i <= m.cursor {
+				current = total
+			}
+		}
+	}
+	return current, total
+}
+
 func matchesThread(dl diff.DiffLine, t gh.ReviewThread) bool {
 	if t.DiffSide == gh.DiffSideLeft {
 		return dl.OldLineNum == t.Line

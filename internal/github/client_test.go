@@ -84,6 +84,41 @@ func TestReviewThread_Fields(t *testing.T) {
 	}
 }
 
+func TestFileStatus_Constants(t *testing.T) {
+	tests := []struct {
+		status FileStatus
+		want   string
+	}{
+		{FileStatusAdded, "added"},
+		{FileStatusModified, "modified"},
+		{FileStatusRemoved, "removed"},
+		{FileStatusRenamed, "renamed"},
+		{FileStatusCopied, "copied"},
+	}
+	for _, tt := range tests {
+		if string(tt.status) != tt.want {
+			t.Errorf("FileStatus = %q, want %q", tt.status, tt.want)
+		}
+	}
+}
+
+func TestDiffResult_Fields(t *testing.T) {
+	result := DiffResult{
+		Patches:           map[string]string{"a.go": "+line"},
+		FileStatuses:      map[string]FileStatus{"a.go": FileStatusModified},
+		PreviousFilenames: map[string]string{"b.go": "old_b.go"},
+	}
+	if result.Patches["a.go"] != "+line" {
+		t.Error("unexpected patch")
+	}
+	if result.FileStatuses["a.go"] != FileStatusModified {
+		t.Error("unexpected status")
+	}
+	if result.PreviousFilenames["b.go"] != "old_b.go" {
+		t.Error("unexpected previous filename")
+	}
+}
+
 func TestGraphQLQueryStrings_NonEmpty(t *testing.T) {
 	queries := map[string]string{
 		"prFilesQuery":              prFilesQuery,

@@ -105,6 +105,41 @@ func TestPRListItem_Fields(t *testing.T) {
 	}
 }
 
+func TestFileStatus_Constants(t *testing.T) {
+	tests := []struct {
+		status FileStatus
+		want   string
+	}{
+		{FileStatusAdded, "added"},
+		{FileStatusModified, "modified"},
+		{FileStatusRemoved, "removed"},
+		{FileStatusRenamed, "renamed"},
+		{FileStatusCopied, "copied"},
+	}
+	for _, tt := range tests {
+		if string(tt.status) != tt.want {
+			t.Errorf("FileStatus = %q, want %q", tt.status, tt.want)
+		}
+	}
+}
+
+func TestDiffResult_Fields(t *testing.T) {
+	result := DiffResult{
+		Patches:           map[string]string{"a.go": "+line"},
+		FileStatuses:      map[string]FileStatus{"a.go": FileStatusModified},
+		PreviousFilenames: map[string]string{"b.go": "old_b.go"},
+	}
+	if result.Patches["a.go"] != "+line" {
+		t.Error("unexpected patch")
+	}
+	if result.FileStatuses["a.go"] != FileStatusModified {
+		t.Error("unexpected status")
+	}
+	if result.PreviousFilenames["b.go"] != "old_b.go" {
+		t.Error("unexpected previous filename")
+	}
+}
+
 func TestGraphQLQueryStrings_NonEmpty(t *testing.T) {
 	queries := map[string]string{
 		"prFilesQuery":              prFilesQuery,
@@ -315,18 +350,18 @@ func TestFetchDiffs_SinglePage(t *testing.T) {
 	}
 	c := newTestClient(nil, rest)
 
-	patches, err := c.FetchDiffs(42)
+	result, err := c.FetchDiffs(42)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(patches) != 2 {
-		t.Fatalf("len(patches) = %d, want 2", len(patches))
+	if len(result.Patches) != 2 {
+		t.Fatalf("len(result.Patches) = %d, want 2", len(result.Patches))
 	}
-	if !strings.Contains(patches["a.go"], "+added") {
-		t.Errorf("patches[a.go] = %q, want containing +added", patches["a.go"])
+	if !strings.Contains(result.Patches["a.go"], "+added") {
+		t.Errorf("result.Patches[a.go] = %q, want containing +added", result.Patches["a.go"])
 	}
-	if !strings.Contains(patches["b.go"], "+new") {
-		t.Errorf("patches[b.go] = %q, want containing +new", patches["b.go"])
+	if !strings.Contains(result.Patches["b.go"], "+new") {
+		t.Errorf("result.Patches[b.go] = %q, want containing +new", result.Patches["b.go"])
 	}
 }
 
@@ -344,15 +379,15 @@ func TestFetchDiffs_MultiPage(t *testing.T) {
 	}
 	c := newTestClient(nil, rest)
 
-	patches, err := c.FetchDiffs(1)
+	result, err := c.FetchDiffs(1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(patches) != 2 {
-		t.Fatalf("len(patches) = %d, want 2", len(patches))
+	if len(result.Patches) != 2 {
+		t.Fatalf("len(result.Patches) = %d, want 2", len(result.Patches))
 	}
-	if patches["a.go"] != "p1" || patches["b.go"] != "p2" {
-		t.Errorf("unexpected patches: %v", patches)
+	if result.Patches["a.go"] != "p1" || result.Patches["b.go"] != "p2" {
+		t.Errorf("unexpected patches: %v", result.Patches)
 	}
 	if len(rest.GetCalls) != 3 {
 		t.Errorf("expected 3 Get calls, got %d", len(rest.GetCalls))
@@ -367,12 +402,12 @@ func TestFetchDiffs_Empty(t *testing.T) {
 	}
 	c := newTestClient(nil, rest)
 
-	patches, err := c.FetchDiffs(1)
+	result, err := c.FetchDiffs(1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(patches) != 0 {
-		t.Errorf("len(patches) = %d, want 0", len(patches))
+	if len(result.Patches) != 0 {
+		t.Errorf("len(result.Patches) = %d, want 0", len(result.Patches))
 	}
 }
 

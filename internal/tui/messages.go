@@ -8,8 +8,8 @@ type PRFetchedMsg struct {
 }
 
 type DiffFetchedMsg struct {
-	Patches map[string]string
-	Err     error
+	Result *gh.DiffResult
+	Err    error
 }
 
 type ThreadsFetchedMsg struct {
@@ -42,9 +42,13 @@ type ReviewSubmittedMsg struct {
 	Err   error
 }
 
+type openedInBrowserMsg struct {
+	Err error
+}
+
 type DataRefreshedMsg struct {
 	PR      *gh.PullRequest
-	Patches map[string]string
+	Result  *gh.DiffResult
 	Threads []gh.ReviewThread
 	Err     error
 }

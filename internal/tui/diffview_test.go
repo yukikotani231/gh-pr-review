@@ -380,6 +380,122 @@ func TestMatchesThread(t *testing.T) {
 	}
 }
 
+func testMultiHunkDiffLines() []diff.DiffLine {
+	return diff.Parse(`@@ -1,3 +1,3 @@
+ line1
+-old2
++new2
+ line3
+@@ -10,3 +10,4 @@
+ line10
+ line11
++added12
+ line12
+@@ -20,2 +21,2 @@
+ line20
+-old21
++new21`)
+}
+
+func TestDiffView_NextHunk(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 40)
+	m.SetContent(testMultiHunkDiffLines(), nil)
+
+	// Start at hunk header 0, next should go to second hunk
+	m.NextHunk()
+	if m.diffLines[m.cursor].Type != diff.LineHunkHeader {
+		t.Errorf("cursor should be on hunk header, got type %d", m.diffLines[m.cursor].Type)
+	}
+	// Should be on second hunk header (not the first one at 0)
+	if m.cursor == 0 {
+		t.Error("cursor should have moved past first hunk header")
+	}
+
+	// Move to third hunk
+	secondPos := m.cursor
+	m.NextHunk()
+	if m.cursor <= secondPos {
+		t.Errorf("cursor should have moved past second hunk")
+	}
+	if m.diffLines[m.cursor].Type != diff.LineHunkHeader {
+		t.Errorf("cursor should be on hunk header")
+	}
+
+	// No more hunks, cursor should stay
+	thirdPos := m.cursor
+	m.NextHunk()
+	if m.cursor != thirdPos {
+		t.Errorf("cursor should stay when no more hunks")
+	}
+}
+
+func TestDiffView_PrevHunk(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 40)
+	m.SetContent(testMultiHunkDiffLines(), nil)
+
+	// Move to last line
+	m.cursor = len(m.diffLines) - 1
+	m.PrevHunk()
+	if m.diffLines[m.cursor].Type != diff.LineHunkHeader {
+		t.Errorf("cursor should be on hunk header")
+	}
+
+	// Move to previous hunk
+	m.PrevHunk()
+	if m.diffLines[m.cursor].Type != diff.LineHunkHeader {
+		t.Errorf("cursor should be on hunk header")
+	}
+
+	// Move to first hunk
+	m.PrevHunk()
+	if m.cursor != 0 {
+		t.Errorf("cursor should be on first hunk header at 0, got %d", m.cursor)
+	}
+
+	// No more hunks before, stay
+	m.PrevHunk()
+	if m.cursor != 0 {
+		t.Errorf("cursor should stay at 0")
+	}
+}
+
+func TestDiffView_HunkPosition(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 40)
+	m.SetContent(testMultiHunkDiffLines(), nil)
+
+	current, total := m.HunkPosition()
+	if total != 3 {
+		t.Errorf("expected 3 total hunks, got %d", total)
+	}
+	if current != 1 {
+		t.Errorf("expected current=1, got %d", current)
+	}
+
+	// Move past all hunks
+	m.cursor = len(m.diffLines) - 1
+	current, total = m.HunkPosition()
+	if current != 3 {
+		t.Errorf("expected current=3 at end, got %d", current)
+	}
+	if total != 3 {
+		t.Errorf("expected total=3, got %d", total)
+	}
+}
+
+func TestDiffView_HunkPosition_NoHunks(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 40)
+	m.SetContent(nil, nil)
+
+	current, total := m.HunkPosition()
+	if current != 0 || total != 0 {
+		t.Errorf("expected (0, 0) for empty diff, got (%d, %d)", current, total)
+	}
+}
+
 func TestFormatTime(t *testing.T) {
 	// Invalid time returns the input string
 	result := formatTime("not-a-time")

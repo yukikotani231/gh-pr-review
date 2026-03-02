@@ -209,6 +209,77 @@ func TestFileList_MoveToNextUnviewed_SingleFile(t *testing.T) {
 	}
 }
 
+func TestFileList_MoveToPrevUnviewed(t *testing.T) {
+	m := FileListModel{}
+	m.SetSize(40, 10)
+	m.SetFiles(newTestFiles())
+	// files[0]=unviewed, [1]=viewed, [2]=unviewed, [3]=unviewed, [4]=viewed
+
+	// Start at 3, prev unviewed is 2
+	m.cursor = 3
+	if !m.MoveToPrevUnviewed() {
+		t.Error("MoveToPrevUnviewed should return true")
+	}
+	if m.cursor != 2 {
+		t.Errorf("expected cursor at 2, got %d", m.cursor)
+	}
+
+	// From 2, prev unviewed is 0 (skipping viewed 1)
+	if !m.MoveToPrevUnviewed() {
+		t.Error("MoveToPrevUnviewed should return true")
+	}
+	if m.cursor != 0 {
+		t.Errorf("expected cursor at 0, got %d", m.cursor)
+	}
+
+	// From 0, prev unviewed wraps to 3
+	if !m.MoveToPrevUnviewed() {
+		t.Error("MoveToPrevUnviewed should return true")
+	}
+	if m.cursor != 3 {
+		t.Errorf("expected cursor at 3 (wrap), got %d", m.cursor)
+	}
+}
+
+func TestFileList_MoveToPrevUnviewed_AllViewed(t *testing.T) {
+	files := []gh.PRFile{
+		{Path: "a.go", ViewerViewedState: gh.ViewedStateViewed},
+		{Path: "b.go", ViewerViewedState: gh.ViewedStateViewed},
+	}
+	m := FileListModel{}
+	m.SetSize(40, 10)
+	m.SetFiles(files)
+
+	if m.MoveToPrevUnviewed() {
+		t.Error("MoveToPrevUnviewed should return false when all viewed")
+	}
+	if m.cursor != 0 {
+		t.Errorf("cursor should stay at 0, got %d", m.cursor)
+	}
+}
+
+func TestFileList_MergeStatuses(t *testing.T) {
+	m := FileListModel{}
+	m.SetFiles(newTestFiles())
+
+	result := &gh.DiffResult{
+		Patches:           map[string]string{},
+		FileStatuses:      map[string]gh.FileStatus{"src/main.go": gh.FileStatusModified, "src/auth.go": gh.FileStatusAdded},
+		PreviousFilenames: map[string]string{"go.mod": "old_go.mod"},
+	}
+	m.MergeStatuses(result)
+
+	if m.files[0].Status != gh.FileStatusModified {
+		t.Errorf("expected Modified, got %q", m.files[0].Status)
+	}
+	if m.files[1].Status != gh.FileStatusAdded {
+		t.Errorf("expected Added, got %q", m.files[1].Status)
+	}
+	if m.files[3].PreviousFilename != "old_go.mod" {
+		t.Errorf("expected old_go.mod, got %q", m.files[3].PreviousFilename)
+	}
+}
+
 func TestFileList_View_EmptyList(t *testing.T) {
 	m := FileListModel{}
 	m.SetSize(40, 10)

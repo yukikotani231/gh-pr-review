@@ -32,7 +32,13 @@ func (m Model) View() string {
 		bottom = m.renderStatusBar()
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left, header, content, bottom)
+	base := lipgloss.JoinVertical(lipgloss.Left, header, content, bottom)
+
+	if m.mode == modeHelp {
+		return m.renderHelpOverlay(base)
+	}
+
+	return base
 }
 
 func (m Model) renderHeader() string {
@@ -90,9 +96,18 @@ func (m Model) renderStatusBar() string {
 	}
 	helpView := m.help.ShortHelpView(helpBindings)
 
-	status := helpView
+	// Show hunk position when right pane is focused
+	var hunkInfo string
+	if m.focus == rightPane && len(m.diffView.diffLines) > 0 {
+		current, total := m.diffView.HunkPosition()
+		if total > 0 {
+			hunkInfo = fmt.Sprintf("Hunk %d/%d  ", current, total)
+		}
+	}
+
+	status := hunkInfo + helpView
 	if m.statusMsg != "" {
-		status = m.statusMsg + "  " + helpView
+		status = m.statusMsg + "  " + status
 	}
 
 	if f := m.fileList.SelectedFile(); f != nil {
@@ -115,6 +130,51 @@ func (m Model) renderInputArea() string {
 		label,
 		m.textInput.View(),
 	)
+}
+
+func (m Model) renderHelpOverlay(_ string) string {
+	sections := []struct {
+		title    string
+		bindings []key.Binding
+	}{
+		{"Navigation", []key.Binding{m.keyMap.Up, m.keyMap.Down, m.keyMap.HalfPageUp, m.keyMap.HalfPageDown, m.keyMap.Tab}},
+		{"File", []key.Binding{m.keyMap.NextUnviewed, m.keyMap.PrevUnviewed, m.keyMap.ToggleViewed}},
+		{"Diff", []key.Binding{m.keyMap.NextHunk, m.keyMap.PrevHunk, m.keyMap.NextThread, m.keyMap.PrevThread}},
+		{"Actions", []key.Binding{m.keyMap.Comment, m.keyMap.Reply, m.keyMap.Resolve, m.keyMap.SubmitReview, m.keyMap.OpenInBrowser}},
+		{"General", []key.Binding{m.keyMap.Help, m.keyMap.Quit}},
+	}
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
+	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("3"))
+	keyStyle := lipgloss.NewStyle().Bold(true).Width(12)
+	hintStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+
+	var sb strings.Builder
+	sb.WriteString(titleStyle.Render("Keyboard Shortcuts"))
+	sb.WriteString("\n\n")
+
+	for _, s := range sections {
+		sb.WriteString(sectionStyle.Render(s.title))
+		sb.WriteString("\n")
+		for _, b := range s.bindings {
+			h := b.Help()
+			fmt.Fprintf(&sb, "  %s %s\n", keyStyle.Render(h.Key), h.Desc)
+		}
+		sb.WriteString("\n")
+	}
+
+	sb.WriteString(hintStyle.Render("Press ? or Esc to close"))
+
+	overlayWidth := 44
+	if m.width-4 < overlayWidth {
+		overlayWidth = m.width - 4
+	}
+
+	overlay := helpOverlayStyle.
+		Width(overlayWidth).
+		Render(sb.String())
+
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, overlay)
 }
 
 func (m Model) renderReviewModal() string {

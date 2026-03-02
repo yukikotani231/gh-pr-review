@@ -18,6 +18,12 @@ type KeyMap struct {
 	SubmitReview  key.Binding
 	Submit        key.Binding
 	Cancel        key.Binding
+	NextUnviewed  key.Binding
+	PrevUnviewed  key.Binding
+	NextHunk      key.Binding
+	PrevHunk      key.Binding
+	OpenInBrowser key.Binding
+	Help          key.Binding
 }
 
 func DefaultKeyMap() KeyMap {
@@ -82,16 +88,43 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("esc"),
 			key.WithHelp("Esc", "cancel"),
 		),
+		NextUnviewed: key.NewBinding(
+			key.WithKeys("]"),
+			key.WithHelp("]", "next unviewed"),
+		),
+		PrevUnviewed: key.NewBinding(
+			key.WithKeys("["),
+			key.WithHelp("[", "prev unviewed"),
+		),
+		NextHunk: key.NewBinding(
+			key.WithKeys("}"),
+			key.WithHelp("}", "next hunk"),
+		),
+		PrevHunk: key.NewBinding(
+			key.WithKeys("{"),
+			key.WithHelp("{", "prev hunk"),
+		),
+		OpenInBrowser: key.NewBinding(
+			key.WithKeys("o"),
+			key.WithHelp("o", "open in browser"),
+		),
+		Help: key.NewBinding(
+			key.WithKeys("?"),
+			key.WithHelp("?", "help"),
+		),
 	}
 }
 
 func (k KeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Up, k.Down, k.ToggleViewed, k.Tab, k.Comment, k.Quit}
+	return []key.Binding{k.Up, k.Down, k.ToggleViewed, k.Tab, k.Comment, k.Help, k.Quit}
 }
 
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Up, k.Down, k.ToggleViewed, k.Comment, k.Reply},
-		{k.Resolve, k.NextThread, k.SubmitReview, k.Tab, k.Quit},
+		{k.Up, k.Down, k.HalfPageUp, k.HalfPageDown},
+		{k.Tab, k.NextUnviewed, k.PrevUnviewed, k.ToggleViewed},
+		{k.NextHunk, k.PrevHunk, k.NextThread, k.PrevThread},
+		{k.Comment, k.Reply, k.Resolve, k.SubmitReview},
+		{k.OpenInBrowser, k.Help, k.Quit},
 	}
 }

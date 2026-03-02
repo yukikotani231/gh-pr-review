@@ -69,7 +69,7 @@ func mockThreads() []gh.ReviewThread {
 // sendReadyState injects the messages needed to bring Model to stateReady.
 func sendReadyState(tm *teatest.TestModel) {
 	tm.Send(PRFetchedMsg{PR: mockPR()})
-	tm.Send(DiffFetchedMsg{Patches: mockPatches()})
+	tm.Send(DiffFetchedMsg{Result: &gh.DiffResult{Patches: mockPatches()}})
 	tm.Send(ThreadsFetchedMsg{Threads: mockThreads()})
 }
 

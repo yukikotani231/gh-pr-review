@@ -53,21 +53,40 @@ func (m *FileListModel) MoveDown() {
 	}
 }
 
-func (m *FileListModel) MoveToNextUnviewed() {
+func (m *FileListModel) MoveToNextUnviewed() bool {
 	for i := m.cursor + 1; i < len(m.files); i++ {
 		if m.files[i].ViewerViewedState != gh.ViewedStateViewed {
 			m.cursor = i
 			m.adjustOffset()
-			return
+			return true
 		}
 	}
 	for i := 0; i < m.cursor; i++ {
 		if m.files[i].ViewerViewedState != gh.ViewedStateViewed {
 			m.cursor = i
 			m.adjustOffset()
-			return
+			return true
 		}
 	}
+	return false
+}
+
+func (m *FileListModel) MoveToPrevUnviewed() bool {
+	for i := m.cursor - 1; i >= 0; i-- {
+		if m.files[i].ViewerViewedState != gh.ViewedStateViewed {
+			m.cursor = i
+			m.adjustOffset()
+			return true
+		}
+	}
+	for i := len(m.files) - 1; i > m.cursor; i-- {
+		if m.files[i].ViewerViewedState != gh.ViewedStateViewed {
+			m.cursor = i
+			m.adjustOffset()
+			return true
+		}
+	}
+	return false
 }
 
 func (m *FileListModel) adjustOffset() {
@@ -97,6 +116,21 @@ func (m *FileListModel) ViewedCount() int {
 	return count
 }
 
+func (m *FileListModel) MergeStatuses(result *gh.DiffResult) {
+	if result == nil {
+		return
+	}
+	for i := range m.files {
+		path := m.files[i].Path
+		if s, ok := result.FileStatuses[path]; ok {
+			m.files[i].Status = s
+		}
+		if prev, ok := result.PreviousFilenames[path]; ok {
+			m.files[i].PreviousFilename = prev
+		}
+	}
+}
+
 func (m *FileListModel) View() string {
 	if len(m.files) == 0 {
 		return "No files"
@@ -116,13 +150,18 @@ func (m *FileListModel) View() string {
 			check = checkStyle.Render("[✓]")
 		}
 
+		icon := fileStatusIcon(f.Status)
+
 		name := filepath.Base(f.Path)
+		if f.Status == gh.FileStatusRenamed && f.PreviousFilename != "" {
+			name = filepath.Base(f.PreviousFilename) + "→" + name
+		}
 		addStr := fmt.Sprintf("+%d", f.Additions)
 		delStr := fmt.Sprintf(" -%d", f.Deletions)
 		statWidth := len(addStr) + len(delStr)
 
-		// layout: "[✓] " (4) + name (nameCol) + " " (1) + stat (statWidth)
-		nameCol := m.width - 5 - statWidth
+		// layout: "[✓] " (4) + icon (1) + " " (1) + name (nameCol) + " " (1) + stat (statWidth)
+		nameCol := m.width - 7 - statWidth
 		if nameCol < 3 {
 			nameCol = 3
 		}
@@ -135,7 +174,7 @@ func (m *FileListModel) View() string {
 			delStyle.Render(delStr),
 		)
 
-		line := fmt.Sprintf("%s %-*s %s", check, nameCol, name, stat)
+		line := fmt.Sprintf("%s %s %-*s %s", check, icon, nameCol, name, stat)
 		line = lipgloss.NewStyle().MaxWidth(m.width).Render(line)
 
 		if i == m.cursor {
@@ -151,4 +190,21 @@ func (m *FileListModel) View() string {
 	}
 
 	return sb.String()
+}
+
+func fileStatusIcon(status gh.FileStatus) string {
+	switch status {
+	case gh.FileStatusAdded:
+		return addStyle.Render("A")
+	case gh.FileStatusModified:
+		return modifiedStyle.Render("M")
+	case gh.FileStatusRemoved:
+		return delStyle.Render("D")
+	case gh.FileStatusRenamed:
+		return renamedStyle.Render("R")
+	case gh.FileStatusCopied:
+		return copiedStyle.Render("C")
+	default:
+		return " "
+	}
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
 	gh "github.com/yukikotani231/gh-pr-review/internal/github"
@@ -165,9 +166,7 @@ func (m *FileListModel) View() string {
 		if nameCol < 3 {
 			nameCol = 3
 		}
-		if len(name) > nameCol {
-			name = name[:nameCol-1] + "…"
-		}
+		name = truncateDisplay(name, nameCol)
 
 		stat := fmt.Sprintf("%s%s",
 			addStyle.Render(addStr),
@@ -175,7 +174,7 @@ func (m *FileListModel) View() string {
 		)
 
 		line := fmt.Sprintf("%s %s %-*s %s", check, icon, nameCol, name, stat)
-		line = lipgloss.NewStyle().MaxWidth(m.width).Render(line)
+		line = lipgloss.NewStyle().MaxWidth(max(1, m.width)).Render(line)
 
 		if i == m.cursor {
 			line = selectedStyle.Render(line)
@@ -190,6 +189,33 @@ func (m *FileListModel) View() string {
 	}
 
 	return sb.String()
+}
+
+func truncateDisplay(s string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return ""
+	}
+	if lipgloss.Width(s) <= maxWidth {
+		return s
+	}
+	if maxWidth == 1 {
+		return "…"
+	}
+
+	var b strings.Builder
+	for len(s) > 0 {
+		r, size := utf8.DecodeRuneInString(s)
+		if r == utf8.RuneError && size == 1 {
+			break
+		}
+		next := b.String() + string(r)
+		if lipgloss.Width(next)+1 > maxWidth {
+			break
+		}
+		b.WriteRune(r)
+		s = s[size:]
+	}
+	return b.String() + "…"
 }
 
 func fileStatusIcon(status gh.FileStatus) string {

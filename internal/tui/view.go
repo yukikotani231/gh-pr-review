@@ -77,7 +77,11 @@ func (m Model) renderContent() string {
 
 	var diffContent string
 	if f := m.fileList.SelectedFile(); f != nil {
-		pathLine := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6")).Render(f.Path)
+		pathLine := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("6")).
+			MaxWidth(max(1, m.diffView.width)).
+			Render(f.Path)
 		diffContent = pathLine + "\n" + m.diffView.View()
 	} else {
 		diffContent = m.diffView.View()
@@ -116,7 +120,7 @@ func (m Model) renderStatusBar() string {
 		status = fileInfo + gap + status
 	}
 
-	return statusBarStyle.Width(m.width).Render(status)
+	return statusBarStyle.Width(max(1, m.width)).Render(status)
 }
 
 func (m Model) renderInputArea() string {
@@ -169,6 +173,9 @@ func (m Model) renderHelpOverlay(_ string) string {
 	if m.width-4 < overlayWidth {
 		overlayWidth = m.width - 4
 	}
+	if overlayWidth < 1 {
+		overlayWidth = 1
+	}
 
 	overlay := helpOverlayStyle.
 		Width(overlayWidth).
@@ -207,5 +214,5 @@ func (m Model) renderReviewModal() string {
 	sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(
 		"  ↑↓: select  Tab: edit body  Ctrl+s: submit  Esc: cancel"))
 
-	return reviewModalStyle.Width(m.width - 4).Render(sb.String())
+	return reviewModalStyle.Width(max(1, m.width-4)).Render(sb.String())
 }

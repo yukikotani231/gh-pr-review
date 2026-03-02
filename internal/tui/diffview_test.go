@@ -1,8 +1,10 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/yukikotani231/gh-pr-review/internal/diff"
 	gh "github.com/yukikotani231/gh-pr-review/internal/github"
 )
@@ -501,5 +503,42 @@ func TestFormatTime(t *testing.T) {
 	result := formatTime("not-a-time")
 	if result != "not-a-time" {
 		t.Errorf("expected input string for invalid time, got %q", result)
+	}
+}
+
+func TestDiffView_ThreadRows_NoWrapOverflow(t *testing.T) {
+	lines := diff.Parse(`@@ -1,2 +1,2 @@
++short
+ line`)
+	threads := []gh.ReviewThread{
+		{
+			ID:         "t1",
+			IsResolved: false,
+			Path:       "a.go",
+			Line:       1,
+			DiffSide:   gh.DiffSideRight,
+			Comments: []gh.ReviewComment{
+				{
+					ID:        "c1",
+					Author:    "alice",
+					CreatedAt: "2026-02-24T10:00:00Z",
+					Body:      "これはとても長いコメント本文で、表示幅を超えるケースを再現するための文字列です",
+				},
+			},
+		},
+	}
+
+	m := NewDiffViewModel()
+	m.SetSize(20, 8)
+	m.SetContent(lines, threads)
+	m.buildDisplayRows()
+
+	for i, row := range m.displayRows {
+		if strings.Contains(row.text, "\n") {
+			t.Fatalf("row %d unexpectedly contains newline: %q", i, row.text)
+		}
+		if w := lipgloss.Width(row.text); w > m.width {
+			t.Fatalf("row %d width overflow: got %d > %d, row=%q", i, w, m.width, row.text)
+		}
 	}
 }

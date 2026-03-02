@@ -165,10 +165,13 @@ func (m Model) openInBrowserCmd() tea.Cmd {
 func (m *Model) updateLayout() {
 	leftWidth := m.leftPaneWidth()
 	contentHeight := m.contentHeight()
-	m.fileList.SetSize(leftWidth-2, contentHeight)
+	fileListWidth := max(1, leftWidth-2)
+	m.fileList.SetSize(fileListWidth, contentHeight)
 	rightWidth := m.rightPaneWidth()
-	m.diffView.SetSize(rightWidth-4, contentHeight-1) // -1 for file path line
-	m.textInput.SetWidth(m.width - 4)
+	diffWidth := max(1, rightWidth-4)
+	diffHeight := max(1, contentHeight-1) // -1 for file path line
+	m.diffView.SetSize(diffWidth, diffHeight)
+	m.textInput.SetWidth(max(10, m.width-4))
 	if m.state == stateReady {
 		m.updateDiffView()
 	}
@@ -263,11 +266,29 @@ func (m Model) unresolvedThreadCount() int {
 // --- Layout helpers ---
 
 func (m Model) leftPaneWidth() int {
-	w := m.width * 30 / 100
-	if w < 20 {
-		w = 20
+	if m.width <= 1 {
+		return 1
 	}
-	return w
+
+	w := m.width * 30 / 100
+	if m.width >= 40 {
+		if w < 20 {
+			w = 20
+		}
+		if w > m.width-20 {
+			w = m.width - 20
+		}
+	} else {
+		// For narrow terminals, keep both panes visible.
+		if w < 1 {
+			w = 1
+		}
+		if w > m.width-1 {
+			w = m.width - 1
+		}
+	}
+
+	return max(1, min(w, m.width-1))
 }
 
 func (m Model) rightPaneWidth() int {

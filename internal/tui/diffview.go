@@ -46,7 +46,7 @@ type DiffViewModel struct {
 	height  int
 	width   int
 
-	displayRows   []displayRow
+	displayRows    []displayRow
 	lineToFirstRow map[int]int // diffLine index -> first displayRow index
 	threadCursor   int         // which thread the cursor is on (-1 for none)
 }
@@ -58,8 +58,8 @@ func NewDiffViewModel() DiffViewModel {
 }
 
 func (m *DiffViewModel) SetSize(width, height int) {
-	m.width = width
-	m.height = height
+	m.width = max(1, width)
+	m.height = max(1, height)
 }
 
 func (m *DiffViewModel) SetContent(lines []diff.DiffLine, threads []gh.ReviewThread) {
@@ -247,6 +247,7 @@ func (m *DiffViewModel) buildDisplayRows() {
 	for i, dl := range m.diffLines {
 		m.lineToFirstRow[i] = len(m.displayRows)
 		rendered := diff.RenderLine(dl, m.width, i == m.cursor)
+		rendered = m.fitRow(rendered)
 		m.displayRows = append(m.displayRows, displayRow{
 			text:        rendered,
 			diffLineIdx: i,
@@ -292,10 +293,11 @@ func (m *DiffViewModel) renderThread(t gh.ReviewThread, tidx int) []displayRow {
 		statusLabel = unresolvedStyle.Render(" [unresolved]")
 	}
 
-	topBorder := border(indent + "┌──") + statusLabel
+	topBorder := border(indent+"┌──") + statusLabel
 	if isHighlighted {
 		topBorder = threadHighlightStyle.Render(topBorder)
 	}
+	topBorder = m.fitRow(topBorder)
 	rows = append(rows, displayRow{text: topBorder, diffLineIdx: -1, threadIdx: tidx})
 
 	for i, c := range t.Comments {
@@ -311,6 +313,7 @@ func (m *DiffViewModel) renderThread(t gh.ReviewThread, tidx int) []displayRow {
 		if isHighlighted {
 			authorLine = threadHighlightStyle.Render(authorLine)
 		}
+		authorLine = m.fitRow(authorLine)
 		rows = append(rows, displayRow{text: authorLine, diffLineIdx: -1, threadIdx: tidx})
 
 		// Body lines
@@ -320,6 +323,7 @@ func (m *DiffViewModel) renderThread(t gh.ReviewThread, tidx int) []displayRow {
 			if isHighlighted {
 				bodyRow = threadHighlightStyle.Render(bodyRow)
 			}
+			bodyRow = m.fitRow(bodyRow)
 			rows = append(rows, displayRow{text: bodyRow, diffLineIdx: -1, threadIdx: tidx})
 		}
 	}
@@ -328,9 +332,14 @@ func (m *DiffViewModel) renderThread(t gh.ReviewThread, tidx int) []displayRow {
 	if isHighlighted {
 		bottomBorder = threadHighlightStyle.Render(bottomBorder)
 	}
+	bottomBorder = m.fitRow(bottomBorder)
 	rows = append(rows, displayRow{text: bottomBorder, diffLineIdx: -1, threadIdx: tidx})
 
 	return rows
+}
+
+func (m *DiffViewModel) fitRow(s string) string {
+	return lipgloss.NewStyle().MaxWidth(max(1, m.width)).Render(s)
 }
 
 func (m *DiffViewModel) View() string {

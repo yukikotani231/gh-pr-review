@@ -35,7 +35,7 @@ func (m Model) View() string {
 	base := lipgloss.JoinVertical(lipgloss.Left, header, content, bottom)
 
 	if m.mode == modeHelp {
-		return m.renderHelpOverlay(base)
+		return m.renderHelpOverlay()
 	}
 
 	return base
@@ -97,9 +97,9 @@ func (m Model) renderStatusBar() string {
 
 	var helpBindings []key.Binding
 	if m.focus == leftPane {
-		helpBindings = []key.Binding{m.keyMap.Up, m.keyMap.Down, m.keyMap.ToggleViewed, m.keyMap.Tab, m.keyMap.SubmitReview, m.keyMap.Quit}
+		helpBindings = []key.Binding{m.keyMap.Up, m.keyMap.Down, m.keyMap.ToggleViewed, m.keyMap.Tab, m.keyMap.SubmitReview, m.keyMap.Help, m.keyMap.Quit}
 	} else {
-		helpBindings = []key.Binding{m.keyMap.Up, m.keyMap.Down, m.keyMap.Comment, m.keyMap.Reply, m.keyMap.Resolve, m.keyMap.NextThread, m.keyMap.ToggleViewed, m.keyMap.SubmitReview, m.keyMap.Tab, m.keyMap.Quit}
+		helpBindings = []key.Binding{m.keyMap.Up, m.keyMap.Down, m.keyMap.Comment, m.keyMap.Reply, m.keyMap.Resolve, m.keyMap.NextThread, m.keyMap.ToggleViewed, m.keyMap.SubmitReview, m.keyMap.Help, m.keyMap.Tab, m.keyMap.Quit}
 	}
 	// Show hunk position when right pane is focused
 	var hunkInfo string
@@ -187,7 +187,7 @@ func (m Model) renderInputArea() string {
 	)
 }
 
-func (m Model) renderHelpOverlay(_ string) string {
+func (m Model) renderHelpOverlay() string {
 	sections := []struct {
 		title    string
 		bindings []key.Binding

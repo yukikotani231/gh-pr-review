@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"os/exec"
+	"runtime"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -154,9 +155,23 @@ func (m Model) openInBrowserCmd() tea.Cmd {
 		m.client.Owner(), m.client.Repo(), m.prNumber)
 
 	return func() tea.Msg {
-		cmd := exec.Command("open", url)
+		cmd := openURLCommand(url)
 		err := cmd.Start()
+		if err == nil && cmd.Process != nil {
+			_ = cmd.Process.Release()
+		}
 		return openedInBrowserMsg{Err: err}
+	}
+}
+
+func openURLCommand(url string) *exec.Cmd {
+	switch runtime.GOOS {
+	case "darwin":
+		return exec.Command("open", url)
+	case "windows":
+		return exec.Command("cmd", "/c", "start", "", url)
+	default:
+		return exec.Command("xdg-open", url)
 	}
 }
 
@@ -171,16 +186,13 @@ func (m *Model) updateLayout() {
 	diffWidth := max(1, rightWidth-4)
 	diffHeight := max(1, contentHeight-1) // -1 for file path line
 	m.diffView.SetSize(diffWidth, diffHeight)
-	m.textInput.SetWidth(max(10, m.width-4))
+	m.textInput.SetWidth(max(1, m.width-4))
 	if m.state == stateReady {
 		m.updateDiffView()
 	}
 }
 
 func (m *Model) updateDiffView() {
-	// Save scroll position of previously selected file
-	m.saveScrollPosition()
-
 	f := m.fileList.SelectedFile()
 	if f == nil {
 		m.diffView.SetContent(nil, nil)
@@ -198,12 +210,11 @@ func (m *Model) updateDiffView() {
 	m.restoreScrollPosition(f.Path)
 }
 
-func (m *Model) saveScrollPosition() {
-	f := m.fileList.SelectedFile()
-	if f == nil || len(m.diffView.diffLines) == 0 {
+func (m *Model) saveScrollPositionForPath(path string) {
+	if path == "" || len(m.diffView.diffLines) == 0 {
 		return
 	}
-	m.scrollCache[f.Path] = scrollPosition{
+	m.scrollCache[path] = scrollPosition{
 		cursor:       m.diffView.cursor,
 		scrollY:      m.diffView.scrollY,
 		threadCursor: m.diffView.threadCursor,

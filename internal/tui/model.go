@@ -39,8 +39,8 @@ const (
 )
 
 type Model struct {
-	state    state
-	err      error
+	state      state
+	err        error
 	client     *gh.Client
 	pr         *gh.PullRequest
 	prNumber   int
@@ -165,6 +165,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.fileList.UpdateViewedState(msg.Path, msg.NewState)
 		if msg.NewState == gh.ViewedStateViewed {
+			if f := m.fileList.SelectedFile(); f != nil {
+				m.saveScrollPositionForPath(f.Path)
+			}
 			m.fileList.MoveToNextUnviewed()
 		}
 		m.updateDiffView()
@@ -281,6 +284,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.state != stateReady {
 			return m, nil
 		}
+		if f := m.fileList.SelectedFile(); f != nil {
+			m.saveScrollPositionForPath(f.Path)
+		}
 		if !m.fileList.MoveToNextUnviewed() {
 			m.statusMsg = "All files viewed"
 		}
@@ -290,6 +296,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keyMap.PrevUnviewed):
 		if m.state != stateReady {
 			return m, nil
+		}
+		if f := m.fileList.SelectedFile(); f != nil {
+			m.saveScrollPositionForPath(f.Path)
 		}
 		if !m.fileList.MoveToPrevUnviewed() {
 			m.statusMsg = "All files viewed"
@@ -313,9 +322,15 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *Model) handleLeftPaneKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keyMap.Up):
+		if f := m.fileList.SelectedFile(); f != nil {
+			m.saveScrollPositionForPath(f.Path)
+		}
 		m.fileList.MoveUp()
 		m.updateDiffView()
 	case key.Matches(msg, m.keyMap.Down):
+		if f := m.fileList.SelectedFile(); f != nil {
+			m.saveScrollPositionForPath(f.Path)
+		}
 		m.fileList.MoveDown()
 		m.updateDiffView()
 	}

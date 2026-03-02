@@ -185,16 +185,18 @@ func truncateDisplay(s string, maxWidth int) string {
 	}
 
 	var b strings.Builder
+	currentWidth := 0
 	for len(s) > 0 {
 		r, size := utf8.DecodeRuneInString(s)
 		if r == utf8.RuneError && size == 1 {
 			break
 		}
-		next := b.String() + string(r)
-		if lipgloss.Width(next)+1 > maxWidth {
+		rw := lipgloss.Width(string(r))
+		if currentWidth+rw+1 > maxWidth {
 			break
 		}
 		b.WriteRune(r)
+		currentWidth += rw
 		s = s[size:]
 	}
 	return b.String() + "…"

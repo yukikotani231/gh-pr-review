@@ -66,6 +66,15 @@ type ReviewThread struct {
 	Comments   []ReviewComment
 }
 
+// PRListItem はPR一覧表示用の軽量な型
+type PRListItem struct {
+	Number    int
+	Title     string
+	Author    string
+	UpdatedAt string
+	IsDraft   bool
+}
+
 type ReviewEvent string
 
 const (

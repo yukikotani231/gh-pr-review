@@ -1,8 +1,10 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/charmbracelet/lipgloss"
 	gh "github.com/yukikotani231/gh-pr-review/internal/github"
 )
 
@@ -299,5 +301,27 @@ func TestFileList_View_NonEmpty(t *testing.T) {
 	}
 	if view == "No files" {
 		t.Error("View returned 'No files' for non-empty list")
+	}
+}
+
+func TestFileList_View_LargeStatNoOverflow(t *testing.T) {
+	files := []gh.PRFile{
+		{Path: "small.go", Additions: 1, Deletions: 1, ViewerViewedState: gh.ViewedStateUnviewed},
+		{Path: "large.go", Additions: 10000, Deletions: 20000, ViewerViewedState: gh.ViewedStateUnviewed},
+		{Path: "huge.go", Additions: 999999, Deletions: 999999, ViewerViewedState: gh.ViewedStateViewed},
+	}
+
+	for _, paneWidth := range []int{20, 25, 30, 40, 60} {
+		m := FileListModel{}
+		m.SetSize(paneWidth, 10)
+		m.SetFiles(files)
+
+		view := m.View()
+		for i, line := range strings.Split(view, "\n") {
+			w := lipgloss.Width(line)
+			if w > paneWidth {
+				t.Errorf("paneWidth=%d, line %d exceeds width: got %d\n  line: %q", paneWidth, i, w, line)
+			}
+		}
 	}
 }

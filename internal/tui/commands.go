@@ -11,6 +11,9 @@ import (
 )
 
 func (m Model) fetchPRCmd() tea.Cmd {
+	if m.client == nil {
+		return nil
+	}
 	return func() tea.Msg {
 		pr, err := m.client.FetchPR(m.prNumber)
 		return PRFetchedMsg{PR: pr, Err: err}
@@ -18,6 +21,9 @@ func (m Model) fetchPRCmd() tea.Cmd {
 }
 
 func (m Model) fetchDiffsCmd() tea.Cmd {
+	if m.client == nil {
+		return nil
+	}
 	return func() tea.Msg {
 		result, err := m.client.FetchDiffs(m.prNumber)
 		return DiffFetchedMsg{Result: result, Err: err}
@@ -25,6 +31,9 @@ func (m Model) fetchDiffsCmd() tea.Cmd {
 }
 
 func (m Model) fetchThreadsCmd() tea.Cmd {
+	if m.client == nil {
+		return nil
+	}
 	return func() tea.Msg {
 		threads, err := m.client.FetchReviewThreads(m.prNumber)
 		return ThreadsFetchedMsg{Threads: threads, Err: err}
@@ -116,6 +125,9 @@ func (m Model) submitReviewCmd(event gh.ReviewEvent, body string) tea.Cmd {
 }
 
 func (m Model) refreshDataCmd() tea.Cmd {
+	if m.client == nil {
+		return nil
+	}
 	return func() tea.Msg {
 		pr, err := m.client.FetchPR(m.prNumber)
 		if err != nil {

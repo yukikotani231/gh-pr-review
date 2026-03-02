@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	gh "github.com/yukikotani231/gh-pr-review/internal/github"
 )
 
@@ -155,20 +156,26 @@ func (m *FileListModel) View() string {
 		if f.Status == gh.FileStatusRenamed && f.PreviousFilename != "" {
 			name = filepath.Base(f.PreviousFilename) + "→" + name
 		}
-		maxNameLen := m.width - 18 // check(3) + space + icon(1) + space + stat(~10)
-		if maxNameLen < 10 {
-			maxNameLen = 10
+		addStr := fmt.Sprintf("+%d", f.Additions)
+		delStr := fmt.Sprintf(" -%d", f.Deletions)
+		statWidth := len(addStr) + len(delStr)
+
+		// layout: "[✓] " (4) + icon (1) + " " (1) + name (nameCol) + " " (1) + stat (statWidth)
+		nameCol := m.width - 7 - statWidth
+		if nameCol < 3 {
+			nameCol = 3
 		}
-		if len(name) > maxNameLen {
-			name = name[:maxNameLen-1] + "…"
+		if len(name) > nameCol {
+			name = name[:nameCol-1] + "…"
 		}
 
 		stat := fmt.Sprintf("%s%s",
-			addStyle.Render(fmt.Sprintf("+%d", f.Additions)),
-			delStyle.Render(fmt.Sprintf(" -%d", f.Deletions)),
+			addStyle.Render(addStr),
+			delStyle.Render(delStr),
 		)
 
-		line := fmt.Sprintf("%s %s %-*s %s", check, icon, maxNameLen, name, stat)
+		line := fmt.Sprintf("%s %s %-*s %s", check, icon, nameCol, name, stat)
+		line = lipgloss.NewStyle().MaxWidth(m.width).Render(line)
 
 		if i == m.cursor {
 			line = selectedStyle.Render(line)

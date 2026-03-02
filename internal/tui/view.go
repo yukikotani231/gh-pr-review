@@ -111,11 +111,12 @@ func (m Model) renderStatusBar() string {
 	}
 
 	var tailPrefix string
-	if m.statusMsg != "" && hunkInfo != "" {
+	switch {
+	case m.statusMsg != "" && hunkInfo != "":
 		tailPrefix = m.statusMsg + "  " + hunkInfo
-	} else if m.statusMsg != "" {
+	case m.statusMsg != "":
 		tailPrefix = m.statusMsg
-	} else {
+	default:
 		tailPrefix = hunkInfo
 	}
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -11,7 +12,7 @@ import (
 type LineType int
 
 const (
-	LineContext    LineType = iota
+	LineContext LineType = iota
 	LineAdded
 	LineRemoved
 	LineHunkHeader
@@ -119,6 +120,10 @@ func parseHunkHeader(line string) (oldStart, newStart int) {
 }
 
 func RenderLine(dl DiffLine, width int, highlighted bool) string {
+	if width < 1 {
+		width = 1
+	}
+
 	// Line numbers
 	var oldNum, newNum string
 	if dl.OldLineNum > 0 {
@@ -142,12 +147,10 @@ func RenderLine(dl DiffLine, width int, highlighted bool) string {
 	content := dl.Content
 	// Truncate if too wide
 	maxContent := width - 12
-	if maxContent < 10 {
-		maxContent = 10
+	if maxContent < 1 {
+		maxContent = 1
 	}
-	if len(content) > maxContent {
-		content = content[:maxContent-1] + "…"
-	}
+	content = truncateDisplay(content, maxContent)
 
 	var line string
 	switch dl.Type {
@@ -167,5 +170,34 @@ func RenderLine(dl DiffLine, width int, highlighted bool) string {
 			Render(line)
 	}
 
-	return line
+	return lipgloss.NewStyle().MaxWidth(width).Render(line)
+}
+
+func truncateDisplay(s string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return ""
+	}
+	if lipgloss.Width(s) <= maxWidth {
+		return s
+	}
+	if maxWidth == 1 {
+		return "…"
+	}
+
+	var b strings.Builder
+	currentWidth := 0
+	for len(s) > 0 {
+		r, size := utf8.DecodeRuneInString(s)
+		if r == utf8.RuneError && size == 1 {
+			break
+		}
+		rw := lipgloss.Width(string(r))
+		if currentWidth+rw+1 > maxWidth {
+			break
+		}
+		b.WriteRune(r)
+		currentWidth += rw
+		s = s[size:]
+	}
+	return b.String() + "…"
 }

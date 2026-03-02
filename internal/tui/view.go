@@ -35,7 +35,7 @@ func (m Model) View() string {
 	base := lipgloss.JoinVertical(lipgloss.Left, header, content, bottom)
 
 	if m.mode == modeHelp {
-		return m.renderHelpOverlay(base)
+		return m.renderHelpOverlay()
 	}
 
 	return base
@@ -77,7 +77,11 @@ func (m Model) renderContent() string {
 
 	var diffContent string
 	if f := m.fileList.SelectedFile(); f != nil {
-		pathLine := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6")).Render(f.Path)
+		pathLine := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("6")).
+			MaxWidth(max(1, m.diffView.width)).
+			Render(f.Path)
 		diffContent = pathLine + "\n" + m.diffView.View()
 	} else {
 		diffContent = m.diffView.View()
@@ -88,35 +92,87 @@ func (m Model) renderContent() string {
 }
 
 func (m Model) renderStatusBar() string {
+	barWidth := max(1, m.width)
+	contentWidth := max(1, barWidth-2) // account for statusBarStyle horizontal padding
+
 	var helpBindings []key.Binding
 	if m.focus == leftPane {
-		helpBindings = []key.Binding{m.keyMap.Up, m.keyMap.Down, m.keyMap.ToggleViewed, m.keyMap.Tab, m.keyMap.SubmitReview, m.keyMap.Quit}
+		helpBindings = []key.Binding{m.keyMap.Up, m.keyMap.Down, m.keyMap.ToggleViewed, m.keyMap.Tab, m.keyMap.SubmitReview, m.keyMap.Help, m.keyMap.Quit}
 	} else {
-		helpBindings = []key.Binding{m.keyMap.Up, m.keyMap.Down, m.keyMap.Comment, m.keyMap.Reply, m.keyMap.Resolve, m.keyMap.NextThread, m.keyMap.ToggleViewed, m.keyMap.SubmitReview, m.keyMap.Tab, m.keyMap.Quit}
+		helpBindings = []key.Binding{m.keyMap.Up, m.keyMap.Down, m.keyMap.Comment, m.keyMap.Reply, m.keyMap.Resolve, m.keyMap.NextThread, m.keyMap.ToggleViewed, m.keyMap.SubmitReview, m.keyMap.Help, m.keyMap.Tab, m.keyMap.Quit}
 	}
-	helpView := m.help.ShortHelpView(helpBindings)
-
 	// Show hunk position when right pane is focused
 	var hunkInfo string
 	if m.focus == rightPane && len(m.diffView.diffLines) > 0 {
 		current, total := m.diffView.HunkPosition()
 		if total > 0 {
-			hunkInfo = fmt.Sprintf("Hunk %d/%d  ", current, total)
+			hunkInfo = fmt.Sprintf("Hunk %d/%d", current, total)
 		}
 	}
 
-	status := hunkInfo + helpView
-	if m.statusMsg != "" {
-		status = m.statusMsg + "  " + status
+	var tailPrefix string
+	switch {
+	case m.statusMsg != "" && hunkInfo != "":
+		tailPrefix = m.statusMsg + "  " + hunkInfo
+	case m.statusMsg != "":
+		tailPrefix = m.statusMsg
+	default:
+		tailPrefix = hunkInfo
 	}
 
+	status := ""
 	if f := m.fileList.SelectedFile(); f != nil {
-		fileInfo := lipgloss.NewStyle().Foreground(lipgloss.Color("245")).Render(f.Path)
-		gap := strings.Repeat(" ", max(1, m.width-lipgloss.Width(status)-lipgloss.Width(fileInfo)-2))
-		status = fileInfo + gap + status
+		status = lipgloss.NewStyle().Foreground(lipgloss.Color("245")).Render(f.Path)
 	}
 
-	return statusBarStyle.Width(m.width).Render(status)
+	remaining := contentWidth - lipgloss.Width(status)
+	if status != "" && remaining > 0 {
+		status += " "
+		remaining--
+	}
+
+	tail := ""
+	if tailPrefix != "" {
+		tail = truncateDisplay(tailPrefix, max(0, remaining))
+	}
+	remaining -= lipgloss.Width(tail)
+	if tail != "" && remaining > 0 {
+		tail += " "
+		remaining--
+	}
+
+	helpView := m.shortHelpToFit(helpBindings, max(0, remaining))
+	if tail != "" {
+		status += tail
+	}
+	if helpView != "" {
+		status += helpView
+	}
+	if status == "" {
+		status = m.shortHelpToFit(helpBindings, contentWidth)
+		if status == "" {
+			status = m.statusMsg
+		}
+	}
+
+	status = strings.ReplaceAll(status, "\n", " ")
+	status = truncateDisplay(status, contentWidth)
+
+	return statusBarStyle.MaxWidth(barWidth).Render(status)
+}
+
+func (m Model) shortHelpToFit(bindings []key.Binding, maxWidth int) string {
+	if maxWidth <= 0 || len(bindings) == 0 {
+		return ""
+	}
+
+	for n := len(bindings); n > 0; n-- {
+		s := strings.ReplaceAll(m.help.ShortHelpView(bindings[:n]), "\n", " ")
+		if lipgloss.Width(s) <= maxWidth {
+			return s
+		}
+	}
+	return ""
 }
 
 func (m Model) renderInputArea() string {
@@ -132,7 +188,7 @@ func (m Model) renderInputArea() string {
 	)
 }
 
-func (m Model) renderHelpOverlay(_ string) string {
+func (m Model) renderHelpOverlay() string {
 	sections := []struct {
 		title    string
 		bindings []key.Binding
@@ -168,6 +224,9 @@ func (m Model) renderHelpOverlay(_ string) string {
 	overlayWidth := 44
 	if m.width-4 < overlayWidth {
 		overlayWidth = m.width - 4
+	}
+	if overlayWidth < 1 {
+		overlayWidth = 1
 	}
 
 	overlay := helpOverlayStyle.
@@ -207,5 +266,5 @@ func (m Model) renderReviewModal() string {
 	sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render(
 		"  ↑↓: select  Tab: edit body  Ctrl+s: submit  Esc: cancel"))
 
-	return reviewModalStyle.Width(m.width - 4).Render(sb.String())
+	return reviewModalStyle.Width(max(1, m.width-4)).Render(sb.String())
 }

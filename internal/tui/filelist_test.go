@@ -325,3 +325,28 @@ func TestFileList_View_LargeStatNoOverflow(t *testing.T) {
 		}
 	}
 }
+
+func TestFileList_View_MultibyteNameNoOverflow(t *testing.T) {
+	files := []gh.PRFile{
+		{
+			Path:              "src/長いファイル名と絵文字😀を含む名前.go",
+			Additions:         123,
+			Deletions:         45,
+			ViewerViewedState: gh.ViewedStateUnviewed,
+		},
+	}
+
+	for _, paneWidth := range []int{20, 24, 30} {
+		m := FileListModel{}
+		m.SetSize(paneWidth, 5)
+		m.SetFiles(files)
+
+		view := m.View()
+		for i, line := range strings.Split(view, "\n") {
+			w := lipgloss.Width(line)
+			if w > paneWidth {
+				t.Fatalf("paneWidth=%d, line %d exceeds width: got %d, line=%q", paneWidth, i, w, line)
+			}
+		}
+	}
+}

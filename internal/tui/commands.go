@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"os/exec"
+	"runtime"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -154,9 +155,23 @@ func (m Model) openInBrowserCmd() tea.Cmd {
 		m.client.Owner(), m.client.Repo(), m.prNumber)
 
 	return func() tea.Msg {
-		cmd := exec.Command("open", url)
+		cmd := openURLCommand(url)
 		err := cmd.Start()
+		if err == nil && cmd.Process != nil {
+			_ = cmd.Process.Release()
+		}
 		return openedInBrowserMsg{Err: err}
+	}
+}
+
+func openURLCommand(url string) *exec.Cmd {
+	switch runtime.GOOS {
+	case "darwin":
+		return exec.Command("open", url)
+	case "windows":
+		return exec.Command("cmd", "/c", "start", "", url)
+	default:
+		return exec.Command("xdg-open", url)
 	}
 }
 
@@ -165,19 +180,19 @@ func (m Model) openInBrowserCmd() tea.Cmd {
 func (m *Model) updateLayout() {
 	leftWidth := m.leftPaneWidth()
 	contentHeight := m.contentHeight()
-	m.fileList.SetSize(leftWidth-2, contentHeight)
+	fileListWidth := max(1, leftWidth-2)
+	m.fileList.SetSize(fileListWidth, contentHeight)
 	rightWidth := m.rightPaneWidth()
-	m.diffView.SetSize(rightWidth-4, contentHeight-1) // -1 for file path line
-	m.textInput.SetWidth(m.width - 4)
+	diffWidth := max(1, rightWidth-4)
+	diffHeight := max(1, contentHeight-1) // -1 for file path line
+	m.diffView.SetSize(diffWidth, diffHeight)
+	m.textInput.SetWidth(max(1, m.width-4))
 	if m.state == stateReady {
 		m.updateDiffView()
 	}
 }
 
 func (m *Model) updateDiffView() {
-	// Save scroll position of previously selected file
-	m.saveScrollPosition()
-
 	f := m.fileList.SelectedFile()
 	if f == nil {
 		m.diffView.SetContent(nil, nil)
@@ -195,12 +210,11 @@ func (m *Model) updateDiffView() {
 	m.restoreScrollPosition(f.Path)
 }
 
-func (m *Model) saveScrollPosition() {
-	f := m.fileList.SelectedFile()
-	if f == nil || len(m.diffView.diffLines) == 0 {
+func (m *Model) saveScrollPositionForPath(path string) {
+	if path == "" || len(m.diffView.diffLines) == 0 {
 		return
 	}
-	m.scrollCache[f.Path] = scrollPosition{
+	m.scrollCache[path] = scrollPosition{
 		cursor:       m.diffView.cursor,
 		scrollY:      m.diffView.scrollY,
 		threadCursor: m.diffView.threadCursor,
@@ -263,11 +277,29 @@ func (m Model) unresolvedThreadCount() int {
 // --- Layout helpers ---
 
 func (m Model) leftPaneWidth() int {
-	w := m.width * 30 / 100
-	if w < 20 {
-		w = 20
+	if m.width <= 1 {
+		return 1
 	}
-	return w
+
+	w := m.width * 30 / 100
+	if m.width >= 40 {
+		if w < 20 {
+			w = 20
+		}
+		if w > m.width-20 {
+			w = m.width - 20
+		}
+	} else {
+		// For narrow terminals, keep both panes visible.
+		if w < 1 {
+			w = 1
+		}
+		if w > m.width-1 {
+			w = m.width - 1
+		}
+	}
+
+	return max(1, min(w, m.width-1))
 }
 
 func (m Model) rightPaneWidth() int {

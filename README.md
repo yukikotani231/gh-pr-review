@@ -13,7 +13,18 @@ gh extension install yukikotani231/gh-pr-review
 ```bash
 # Run from inside a git repo
 gh pr-review <PR number>
+
+# Or pass a PR URL directly
+gh pr-review https://github.com/owner/repo/pull/123
 ```
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `-R`, `--repo <owner/repo>` | Specify repository explicitly |
+| `-h`, `--help` | Show help |
+| `--version` | Show version |
 
 ## Key Bindings
 

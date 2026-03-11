@@ -1,0 +1,81 @@
+{
+  "owner": "demo",
+  "repo": "gh-pr-review",
+  "pull_request": {
+    "id": "PR_demo_rename",
+    "title": "Demo: rename and mixed file statuses",
+    "number": 9002,
+    "additions": 18,
+    "deletions": 12,
+    "changed_files": 4,
+    "files": [
+      {
+        "path": "internal/tui/split_diff.go",
+        "additions": 9,
+        "deletions": 5,
+        "viewer_viewed_state": "UNVIEWED"
+      },
+      {
+        "path": "internal/tui/filetree.go",
+        "additions": 5,
+        "deletions": 3,
+        "viewer_viewed_state": "UNVIEWED"
+      },
+      {
+        "path": "internal/tui/new_panel.go",
+        "additions": 4,
+        "deletions": 0,
+        "viewer_viewed_state": "VIEWED"
+      },
+      {
+        "path": "docs/old-name.txt",
+        "additions": 0,
+        "deletions": 4,
+        "viewer_viewed_state": "UNVIEWED"
+      }
+    ]
+  },
+  "diff_result": {
+    "patches": {
+      "internal/tui/split_diff.go": "@@ -10,8 +10,10 @@ func renderPane() string {\n-\tlabel := \"Unified\"\n+\tlabel := \"Split\"\n \twidth := paneWidth\n+\tseparator := \" | \"\n \treturn label\n }\n",
+      "internal/tui/filetree.go": "@@ -1,5 +1,7 @@\n package tui\n \n+import \"path/filepath\"\n+\n func renderTree() string {\n \treturn \"tree\"\n }\n",
+      "internal/tui/new_panel.go": "@@ -0,0 +1,4 @@\n+package tui\n+\n+func renderNewPanel() string { return \"new\" }\n+",
+      "docs/old-name.txt": "@@ -1,4 +0,0 @@\n-old line 1\n-old line 2\n-old line 3\n-old line 4\n"
+    },
+    "file_statuses": {
+      "internal/tui/split_diff.go": "renamed",
+      "internal/tui/filetree.go": "modified",
+      "internal/tui/new_panel.go": "added",
+      "docs/old-name.txt": "removed"
+    },
+    "previous_filenames": {
+      "internal/tui/split_diff.go": "internal/tui/diff_mode.go"
+    }
+  },
+  "threads": [
+    {
+      "id": "RT_demo_rename_1",
+      "is_resolved": false,
+      "path": "internal/tui/split_diff.go",
+      "line": 11,
+      "diff_side": "RIGHT",
+      "comments": [
+        {
+          "id": "RC_demo_rename_1",
+          "body": "rename badge and previous filename display should be easy to spot here.",
+          "author": "reviewer",
+          "created_at": "2026-03-11T09:00:00Z"
+        }
+      ]
+    }
+  ],
+  "open_prs": [
+    {
+      "number": 9002,
+      "title": "Demo: rename and mixed file statuses",
+      "author": "fixture",
+      "updated_at": "2026-03-11T09:00:00Z",
+      "is_draft": false
+    }
+  ]
+}

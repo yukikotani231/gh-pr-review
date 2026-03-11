@@ -1,0 +1,99 @@
+{
+  "owner": "demo",
+  "repo": "gh-pr-review",
+  "pull_request": {
+    "id": "PR_demo_threads",
+    "title": "Demo: dense review threads and comments",
+    "number": 9003,
+    "additions": 12,
+    "deletions": 7,
+    "changed_files": 2,
+    "files": [
+      {
+        "path": "internal/tui/comment_panel.go",
+        "additions": 8,
+        "deletions": 5,
+        "viewer_viewed_state": "UNVIEWED"
+      },
+      {
+        "path": "internal/tui/statusbar.go",
+        "additions": 4,
+        "deletions": 2,
+        "viewer_viewed_state": "UNVIEWED"
+      }
+    ]
+  },
+  "diff_result": {
+    "patches": {
+      "internal/tui/comment_panel.go": "@@ -30,9 +30,11 @@ func renderCommentPanel() string {\n \theader := \"Comments\"\n-\tbody := currentComment\n+\tbody := strings.TrimSpace(currentComment)\n+\tfooter := \"Ctrl+s to submit\"\n \treturn header + body\n }\n@@ -60,4 +62,5 @@ func replyHint() string {\n-\treturn \"reply\"\n+\treturn \"reply to thread\"\n }\n+\n",
+      "internal/tui/statusbar.go": "@@ -5,5 +5,7 @@ func renderStatusBar() string {\n \tleft := currentFile\n+\tmiddle := currentMode\n \tright := currentHint\n \treturn left + right\n }\n"
+    },
+    "file_statuses": {
+      "internal/tui/comment_panel.go": "modified",
+      "internal/tui/statusbar.go": "modified"
+    },
+    "previous_filenames": {}
+  },
+  "threads": [
+    {
+      "id": "RT_demo_threads_1",
+      "is_resolved": false,
+      "path": "internal/tui/comment_panel.go",
+      "line": 31,
+      "diff_side": "RIGHT",
+      "comments": [
+        {
+          "id": "RC_demo_threads_1",
+          "body": "First unresolved thread.",
+          "author": "alice",
+          "created_at": "2026-03-11T09:10:00Z"
+        },
+        {
+          "id": "RC_demo_threads_2",
+          "body": "Reply so you can inspect stacked comments.",
+          "author": "bob",
+          "created_at": "2026-03-11T09:11:00Z"
+        }
+      ]
+    },
+    {
+      "id": "RT_demo_threads_2",
+      "is_resolved": false,
+      "path": "internal/tui/comment_panel.go",
+      "line": 33,
+      "diff_side": "RIGHT",
+      "comments": [
+        {
+          "id": "RC_demo_threads_3",
+          "body": "Second unresolved thread on a nearby line.",
+          "author": "carol",
+          "created_at": "2026-03-11T09:12:00Z"
+        }
+      ]
+    },
+    {
+      "id": "RT_demo_threads_3",
+      "is_resolved": true,
+      "path": "internal/tui/statusbar.go",
+      "line": 6,
+      "diff_side": "RIGHT",
+      "comments": [
+        {
+          "id": "RC_demo_threads_4",
+          "body": "Resolved thread preview.",
+          "author": "dave",
+          "created_at": "2026-03-11T09:13:00Z"
+        }
+      ]
+    }
+  ],
+  "open_prs": [
+    {
+      "number": 9003,
+      "title": "Demo: dense review threads and comments",
+      "author": "fixture",
+      "updated_at": "2026-03-11T09:13:00Z",
+      "is_draft": false
+    }
+  ]
+}

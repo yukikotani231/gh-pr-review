@@ -1,0 +1,39 @@
+{
+  "owner": "demo",
+  "repo": "gh-pr-review",
+  "pull_request": {
+    "id": "PR_demo_wide",
+    "title": "Demo: wide split diff stress case",
+    "number": 9004,
+    "additions": 16,
+    "deletions": 14,
+    "changed_files": 1,
+    "files": [
+      {
+        "path": "internal/tui/split_layout.go",
+        "additions": 16,
+        "deletions": 14,
+        "viewer_viewed_state": "UNVIEWED"
+      }
+    ]
+  },
+  "diff_result": {
+    "patches": {
+      "internal/tui/split_layout.go": "@@ -100,10 +100,12 @@ func renderSplitLayout(width int) string {\n-\tleftColumn := calculatePaneWidth(width, 0.45)\n-\trightColumn := calculatePaneWidth(width, 0.55)\n-\tseparator := \"  \"\n+\tleftColumn := calculatePaneWidth(width, 0.50)\n+\trightColumn := calculatePaneWidth(width, 0.50)\n+\tseparator := \" | \"\n+\thelpText := \"toggle split mode with s when the terminal is wide enough for side-by-side diff rendering\"\n \tif width < 80 {\n-\t\treturn renderUnified(width)\n+\t\treturn renderUnified(width)\n \t}\n-\treturn renderColumns(leftColumn, separator, rightColumn)\n+\treturn renderColumns(leftColumn, separator, rightColumn, helpText)\n }\n@@ -140,3 +142,5 @@ func footer() string {\n \treturn \"footer\"\n }\n+\n+// keep an extra trailing line to preview bottom spacing\n"
+    },
+    "file_statuses": {
+      "internal/tui/split_layout.go": "modified"
+    },
+    "previous_filenames": {}
+  },
+  "threads": [],
+  "open_prs": [
+    {
+      "number": 9004,
+      "title": "Demo: wide split diff stress case",
+      "author": "fixture",
+      "updated_at": "2026-03-11T09:20:00Z",
+      "is_draft": false
+    }
+  ]
+}

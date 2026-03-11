@@ -44,7 +44,7 @@ func main() {
 		return
 	}
 	if opts.showVersion {
-		fmt.Fprintf(os.Stdout, "gh pr-review %s\n", version)
+		_, _ = fmt.Fprintf(os.Stdout, "gh pr-review %s\n", version)
 		return
 	}
 
@@ -75,7 +75,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		if hasURLArg && (overrideOwner != owner || overrideRepo != repoName) {
+		if hasURLArg && !sameRepo(overrideOwner, overrideRepo, owner, repoName) {
 			fmt.Fprintf(
 				os.Stderr,
 				"Error: --repo (%s/%s) does not match PR URL repository (%s/%s)\n",
@@ -185,10 +185,6 @@ func parsePullURL(raw string) (owner, repo string, number int, ok bool, err erro
 		return "", "", 0, false, nil
 	}
 
-	if !strings.EqualFold(u.Host, "github.com") {
-		return "", "", 0, true, fmt.Errorf("unsupported host in PR URL: %s", u.Host)
-	}
-
 	cleanPath := path.Clean(strings.Trim(u.Path, "/"))
 	parts := strings.Split(cleanPath, "/")
 	if len(parts) < 4 || parts[2] != "pull" {
@@ -209,6 +205,10 @@ func parseRepoOverride(input string) (owner, repo string, err error) {
 		return "", "", fmt.Errorf("--repo must be in OWNER/REPO format: got %q", input)
 	}
 	return parts[0], parts[1], nil
+}
+
+func sameRepo(leftOwner, leftRepo, rightOwner, rightRepo string) bool {
+	return strings.EqualFold(leftOwner, rightOwner) && strings.EqualFold(leftRepo, rightRepo)
 }
 
 func printUsage(w io.Writer) {

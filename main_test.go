@@ -34,20 +34,26 @@ func TestParsePRTarget_URL(t *testing.T) {
 	}
 }
 
+func TestParsePRTarget_EnterpriseURL(t *testing.T) {
+	n, owner, repo, isURL, err := parsePRTarget("https://github.example.com/cli/cli/pull/999")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if n != 999 {
+		t.Fatalf("number = %d, want 999", n)
+	}
+	if owner != "cli" || repo != "cli" {
+		t.Fatalf("owner/repo = %q/%q, want cli/cli", owner, repo)
+	}
+	if !isURL {
+		t.Fatal("isURL should be true for URL target")
+	}
+}
+
 func TestParsePRTarget_Invalid(t *testing.T) {
 	_, _, _, _, err := parsePRTarget("https://github.com/cli/cli/issues/1")
 	if err == nil {
 		t.Fatal("expected error")
-	}
-}
-
-func TestParsePullURL_UnsupportedHost(t *testing.T) {
-	_, _, _, ok, err := parsePullURL("https://example.com/cli/cli/pull/1")
-	if !ok {
-		t.Fatal("expected ok=true for URL-looking input")
-	}
-	if err == nil {
-		t.Fatal("expected host error")
 	}
 }
 
@@ -65,6 +71,12 @@ func TestParseRepoOverride_Invalid(t *testing.T) {
 	_, _, err := parseRepoOverride("owner")
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestSameRepo_CaseInsensitive(t *testing.T) {
+	if !sameRepo("Owner", "Repo", "owner", "repo") {
+		t.Fatal("expected sameRepo to treat owner/repo as case-insensitive")
 	}
 }
 

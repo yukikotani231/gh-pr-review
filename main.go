@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -21,6 +22,7 @@ const version = "v0.1.0"
 type cliOptions struct {
 	repoOverride string
 	targetArg    string
+	fixturePath  string
 	showHelp     bool
 	showVersion  bool
 }
@@ -45,6 +47,36 @@ func main() {
 	}
 	if opts.showVersion {
 		_, _ = fmt.Fprintf(os.Stdout, "gh pr-review %s\n", version)
+		return
+	}
+
+	if opts.fixturePath != "" {
+		if opts.repoOverride != "" {
+			fmt.Fprintln(os.Stderr, "Error: --fixture cannot be used with --repo")
+			os.Exit(1)
+		}
+		if opts.targetArg != "" {
+			fmt.Fprintln(os.Stderr, "Error: --fixture cannot be used with a PR number or PR URL")
+			os.Exit(1)
+		}
+
+		resolvedPath, err := resolveFixturePath(opts.fixturePath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		fixture, err := gh.LoadFixtureData(resolvedPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		client := gh.NewFixtureClient(fixture)
+		model := tui.NewModel(client, fixture.PullRequest.Number)
+		p := tea.NewProgram(model, tea.WithAltScreen())
+		if _, err := p.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 		return
 	}
 
@@ -136,12 +168,20 @@ func parseCLIArgs(args []string) (cliOptions, error) {
 			opts.showHelp = true
 		case arg == "--version":
 			opts.showVersion = true
+		case arg == "--fixture":
+			if i+1 >= len(args) {
+				return opts, fmt.Errorf("%s requires a fixture name or path", arg)
+			}
+			i++
+			opts.fixturePath = args[i]
 		case arg == "--repo" || arg == "-R":
 			if i+1 >= len(args) {
 				return opts, fmt.Errorf("%s requires value in OWNER/REPO format", arg)
 			}
 			i++
 			opts.repoOverride = args[i]
+		case strings.HasPrefix(arg, "--fixture="):
+			opts.fixturePath = strings.TrimPrefix(arg, "--fixture=")
 		case strings.HasPrefix(arg, "--repo="):
 			opts.repoOverride = strings.TrimPrefix(arg, "--repo=")
 		case strings.HasPrefix(arg, "-"):
@@ -211,6 +251,27 @@ func sameRepo(leftOwner, leftRepo, rightOwner, rightRepo string) bool {
 	return strings.EqualFold(leftOwner, rightOwner) && strings.EqualFold(leftRepo, rightRepo)
 }
 
+func resolveFixturePath(input string) (string, error) {
+	candidates := []string{
+		input,
+		filepath.Join("testdata", "fixtures", input),
+		filepath.Join("testdata", "fixtures", input+".json"),
+	}
+
+	for _, candidate := range candidates {
+		info, err := os.Stat(candidate)
+		if err != nil {
+			continue
+		}
+		if info.IsDir() {
+			continue
+		}
+		return candidate, nil
+	}
+
+	return "", fmt.Errorf("fixture not found: %s", input)
+}
+
 func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintf(w, "gh pr-review %s\n\n", version)
 	_, _ = fmt.Fprintln(w, "Usage:")
@@ -218,6 +279,7 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "")
 	_, _ = fmt.Fprintln(w, "Options:")
 	_, _ = fmt.Fprintln(w, "  -R, --repo OWNER/REPO  Select repository explicitly")
+	_, _ = fmt.Fprintln(w, "      --fixture NAME     Launch TUI with fixture data from testdata/fixtures")
 	_, _ = fmt.Fprintln(w, "  -h, --help             Show help")
 	_, _ = fmt.Fprintln(w, "      --version          Show version")
 	_, _ = fmt.Fprintln(w, "")
@@ -225,6 +287,7 @@ func printUsage(w io.Writer) {
 	_, _ = fmt.Fprintln(w, "  gh pr-review 123")
 	_, _ = fmt.Fprintln(w, "  gh pr-review https://github.com/owner/repo/pull/123")
 	_, _ = fmt.Fprintln(w, "  gh pr-review -R owner/repo 123")
+	_, _ = fmt.Fprintln(w, "  gh pr-review --fixture basic")
 }
 
 func runSelector(client *gh.Client) (int, error) {

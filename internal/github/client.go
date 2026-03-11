@@ -17,10 +17,11 @@ type restGetter interface {
 }
 
 type Client struct {
-	gql   graphQLDoer
-	rest  restGetter
-	owner string
-	repo  string
+	gql     graphQLDoer
+	rest    restGetter
+	owner   string
+	repo    string
+	fixture *FixtureData
 }
 
 func NewClient(owner, repo string) (*Client, error) {
@@ -36,6 +37,15 @@ func NewClient(owner, repo string) (*Client, error) {
 }
 
 func (c *Client) FetchPR(number int) (*PullRequest, error) {
+	if c.fixture != nil {
+		if number != 0 && number != c.fixture.PullRequest.Number {
+			return nil, fmt.Errorf("fixture PR #%d is not available", number)
+		}
+		pr := c.fixture.PullRequest
+		pr.Files = append([]PRFile(nil), pr.Files...)
+		return &pr, nil
+	}
+
 	var allFiles []PRFile
 	var cursor *string
 	var pr *PullRequest
@@ -115,6 +125,27 @@ func (c *Client) Owner() string { return c.owner }
 func (c *Client) Repo() string  { return c.repo }
 
 func (c *Client) FetchDiffs(number int) (*DiffResult, error) {
+	if c.fixture != nil {
+		if number != 0 && number != c.fixture.PullRequest.Number {
+			return nil, fmt.Errorf("fixture PR #%d is not available", number)
+		}
+		result := &DiffResult{
+			Patches:           make(map[string]string, len(c.fixture.DiffResult.Patches)),
+			FileStatuses:      make(map[string]FileStatus, len(c.fixture.DiffResult.FileStatuses)),
+			PreviousFilenames: make(map[string]string, len(c.fixture.DiffResult.PreviousFilenames)),
+		}
+		for path, patch := range c.fixture.DiffResult.Patches {
+			result.Patches[path] = patch
+		}
+		for path, status := range c.fixture.DiffResult.FileStatuses {
+			result.FileStatuses[path] = status
+		}
+		for path, prev := range c.fixture.DiffResult.PreviousFilenames {
+			result.PreviousFilenames[path] = prev
+		}
+		return result, nil
+	}
+
 	result := &DiffResult{
 		Patches:           make(map[string]string),
 		FileStatuses:      make(map[string]FileStatus),
@@ -156,6 +187,9 @@ func (c *Client) FetchDiffs(number int) (*DiffResult, error) {
 }
 
 func (c *Client) MarkFileAsViewed(pullRequestID, path string) error {
+	if c.fixture != nil {
+		return fmt.Errorf("fixture mode is read-only")
+	}
 	variables := map[string]interface{}{
 		"pullRequestId": pullRequestID,
 		"path":          path,
@@ -165,6 +199,9 @@ func (c *Client) MarkFileAsViewed(pullRequestID, path string) error {
 }
 
 func (c *Client) UnmarkFileAsViewed(pullRequestID, path string) error {
+	if c.fixture != nil {
+		return fmt.Errorf("fixture mode is read-only")
+	}
 	variables := map[string]interface{}{
 		"pullRequestId": pullRequestID,
 		"path":          path,
@@ -174,6 +211,17 @@ func (c *Client) UnmarkFileAsViewed(pullRequestID, path string) error {
 }
 
 func (c *Client) FetchReviewThreads(number int) ([]ReviewThread, error) {
+	if c.fixture != nil {
+		if number != 0 && number != c.fixture.PullRequest.Number {
+			return nil, fmt.Errorf("fixture PR #%d is not available", number)
+		}
+		threads := append([]ReviewThread(nil), c.fixture.Threads...)
+		for i := range threads {
+			threads[i].Comments = append([]ReviewComment(nil), threads[i].Comments...)
+		}
+		return threads, nil
+	}
+
 	var allThreads []ReviewThread
 	var cursor *string
 
@@ -250,6 +298,9 @@ func (c *Client) FetchReviewThreads(number int) ([]ReviewThread, error) {
 }
 
 func (c *Client) AddComment(pullRequestID, path, body string, side DiffSide, line int) error {
+	if c.fixture != nil {
+		return fmt.Errorf("fixture mode is read-only")
+	}
 	variables := map[string]interface{}{
 		"pullRequestId": pullRequestID,
 		"body":          body,
@@ -262,6 +313,9 @@ func (c *Client) AddComment(pullRequestID, path, body string, side DiffSide, lin
 }
 
 func (c *Client) ReplyToThread(threadID, body string) error {
+	if c.fixture != nil {
+		return fmt.Errorf("fixture mode is read-only")
+	}
 	variables := map[string]interface{}{
 		"threadId": threadID,
 		"body":     body,
@@ -271,6 +325,9 @@ func (c *Client) ReplyToThread(threadID, body string) error {
 }
 
 func (c *Client) ResolveThread(threadID string) error {
+	if c.fixture != nil {
+		return fmt.Errorf("fixture mode is read-only")
+	}
 	variables := map[string]interface{}{
 		"threadId": threadID,
 	}
@@ -279,6 +336,9 @@ func (c *Client) ResolveThread(threadID string) error {
 }
 
 func (c *Client) UnresolveThread(threadID string) error {
+	if c.fixture != nil {
+		return fmt.Errorf("fixture mode is read-only")
+	}
 	variables := map[string]interface{}{
 		"threadId": threadID,
 	}
@@ -287,6 +347,18 @@ func (c *Client) UnresolveThread(threadID string) error {
 }
 
 func (c *Client) FetchOpenPRs() ([]PRListItem, error) {
+	if c.fixture != nil {
+		if len(c.fixture.OpenPRs) > 0 {
+			return append([]PRListItem(nil), c.fixture.OpenPRs...), nil
+		}
+		return []PRListItem{{
+			Number:    c.fixture.PullRequest.Number,
+			Title:     c.fixture.PullRequest.Title,
+			Author:    "fixture",
+			UpdatedAt: "2026-03-11T00:00:00Z",
+		}}, nil
+	}
+
 	var allPRs []PRListItem
 	var cursor *string
 
@@ -343,6 +415,9 @@ func (c *Client) FetchOpenPRs() ([]PRListItem, error) {
 }
 
 func (c *Client) SubmitReview(pullRequestID string, event ReviewEvent, body string) error {
+	if c.fixture != nil {
+		return fmt.Errorf("fixture mode is read-only")
+	}
 	variables := map[string]interface{}{
 		"pullRequestId": pullRequestID,
 		"event":         string(event),

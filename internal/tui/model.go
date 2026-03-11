@@ -397,6 +397,13 @@ func (m *Model) handleRightPaneKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.diffView.NextHunk()
 	case key.Matches(msg, m.keyMap.PrevHunk):
 		m.diffView.PrevHunk()
+	case key.Matches(msg, m.keyMap.ToggleDiffMode):
+		m.diffView.ToggleMode()
+		if m.diffView.Mode() == diffModeSplit && !m.diffView.CanRenderSplit() {
+			m.statusMsg = "Split diff requires a wider pane"
+		} else {
+			m.statusMsg = ""
+		}
 	}
 
 	return m, nil

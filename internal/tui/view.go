@@ -99,15 +99,17 @@ func (m Model) renderStatusBar() string {
 	if m.focus == leftPane {
 		helpBindings = []key.Binding{m.keyMap.Up, m.keyMap.Down, m.keyMap.ToggleViewed, m.keyMap.Tab, m.keyMap.SubmitReview, m.keyMap.Help, m.keyMap.Quit}
 	} else {
-		helpBindings = []key.Binding{m.keyMap.Up, m.keyMap.Down, m.keyMap.Comment, m.keyMap.Reply, m.keyMap.Resolve, m.keyMap.NextThread, m.keyMap.ToggleViewed, m.keyMap.SubmitReview, m.keyMap.Help, m.keyMap.Tab, m.keyMap.Quit}
+		helpBindings = []key.Binding{m.keyMap.Up, m.keyMap.Down, m.keyMap.Comment, m.keyMap.Reply, m.keyMap.Resolve, m.keyMap.NextThread, m.keyMap.ToggleDiffMode, m.keyMap.ToggleViewed, m.keyMap.SubmitReview, m.keyMap.Help, m.keyMap.Tab, m.keyMap.Quit}
 	}
 	// Show hunk position when right pane is focused
 	var hunkInfo string
 	if m.focus == rightPane && len(m.diffView.diffLines) > 0 {
 		current, total := m.diffView.HunkPosition()
 		if total > 0 {
-			hunkInfo = fmt.Sprintf("Hunk %d/%d", current, total)
+			hunkInfo = fmt.Sprintf("Hunk %d/%d %s", current, total, m.diffView.ModeLabel())
 		}
+	} else if m.focus == rightPane {
+		hunkInfo = m.diffView.ModeLabel()
 	}
 
 	var tailPrefix string
@@ -195,7 +197,7 @@ func (m Model) renderHelpOverlay() string {
 	}{
 		{"Navigation", []key.Binding{m.keyMap.Up, m.keyMap.Down, m.keyMap.HalfPageUp, m.keyMap.HalfPageDown, m.keyMap.Tab}},
 		{"File", []key.Binding{m.keyMap.NextUnviewed, m.keyMap.PrevUnviewed, m.keyMap.ToggleViewed}},
-		{"Diff", []key.Binding{m.keyMap.NextHunk, m.keyMap.PrevHunk, m.keyMap.NextThread, m.keyMap.PrevThread}},
+		{"Diff", []key.Binding{m.keyMap.NextHunk, m.keyMap.PrevHunk, m.keyMap.NextThread, m.keyMap.PrevThread, m.keyMap.ToggleDiffMode}},
 		{"Actions", []key.Binding{m.keyMap.Comment, m.keyMap.Reply, m.keyMap.Resolve, m.keyMap.SubmitReview, m.keyMap.OpenInBrowser}},
 		{"General", []key.Binding{m.keyMap.Help, m.keyMap.Quit}},
 	}

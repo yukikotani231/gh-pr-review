@@ -327,6 +327,57 @@ func TestDiffView_View_NonEmpty(t *testing.T) {
 	}
 }
 
+func TestDiffView_ToggleMode_Split(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(testDiffLines(), nil)
+
+	m.ToggleMode()
+
+	if m.Mode() != diffModeSplit {
+		t.Fatalf("mode = %v, want split", m.Mode())
+	}
+	if !m.CanRenderSplit() {
+		t.Fatal("expected split mode to be renderable at width 80")
+	}
+
+	view := m.View()
+	if !strings.Contains(view, "old line2") || !strings.Contains(view, "new line2") {
+		t.Fatalf("split view should contain both sides of changed line, got %q", view)
+	}
+}
+
+func TestDiffView_SplitFallbackOnNarrowWidth(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(40, 20)
+	m.SetContent(testDiffLines(), nil)
+
+	m.ToggleMode()
+
+	if m.Mode() != diffModeSplit {
+		t.Fatalf("mode = %v, want split preference", m.Mode())
+	}
+	if m.CanRenderSplit() {
+		t.Fatal("expected split mode to fall back at narrow width")
+	}
+	if got := m.ModeLabel(); got != "[split->unified]" {
+		t.Fatalf("ModeLabel() = %q, want fallback label", got)
+	}
+}
+
+func TestDiffView_SplitAlignsRemovedAndAddedRows(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(testDiffLines(), nil)
+
+	m.ToggleMode()
+	m.buildDisplayRows()
+
+	if got := m.lineToFirstRow[2]; got != m.lineToFirstRow[3] {
+		t.Fatalf("removed and added line should share a split row, got %d and %d", m.lineToFirstRow[2], m.lineToFirstRow[3])
+	}
+}
+
 func TestMatchesThread(t *testing.T) {
 	tests := []struct {
 		name     string

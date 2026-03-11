@@ -27,7 +27,7 @@ func TestLoadFixtureData(t *testing.T) {
 			"file_statuses": {"main.go": "modified"},
 			"previous_filenames": {}
 		},
-		"threads": []
+		"threads": [{"id":"T1","is_resolved":true,"path":"main.go","line":1,"diff_side":"RIGHT","comments":[]}]
 	}`
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
@@ -40,8 +40,14 @@ func TestLoadFixtureData(t *testing.T) {
 	if fixture.PullRequest.Number != 42 {
 		t.Fatalf("PullRequest.Number = %d, want 42", fixture.PullRequest.Number)
 	}
+	if fixture.PullRequest.ChangedFiles != 1 {
+		t.Fatalf("PullRequest.ChangedFiles = %d, want 1", fixture.PullRequest.ChangedFiles)
+	}
 	if fixture.DiffResult.Patches["main.go"] == "" {
 		t.Fatal("expected patch for main.go")
+	}
+	if len(fixture.Threads) != 1 || !fixture.Threads[0].IsResolved {
+		t.Fatalf("expected resolved thread to be decoded, got %+v", fixture.Threads)
 	}
 }
 

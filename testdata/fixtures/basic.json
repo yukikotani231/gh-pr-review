@@ -1,0 +1,92 @@
+{
+  "owner": "demo",
+  "repo": "gh-pr-review",
+  "pull_request": {
+    "id": "PR_demo_basic",
+    "title": "Demo: split diff and thread layout preview",
+    "number": 9001,
+    "additions": 24,
+    "deletions": 10,
+    "changed_files": 3,
+    "files": [
+      {
+        "path": "internal/tui/diffview.go",
+        "additions": 14,
+        "deletions": 6,
+        "viewer_viewed_state": "UNVIEWED"
+      },
+      {
+        "path": "internal/tui/view.go",
+        "additions": 6,
+        "deletions": 2,
+        "viewer_viewed_state": "UNVIEWED"
+      },
+      {
+        "path": "docs/demo.txt",
+        "additions": 4,
+        "deletions": 2,
+        "viewer_viewed_state": "VIEWED"
+      }
+    ]
+  },
+  "diff_result": {
+    "patches": {
+      "internal/tui/diffview.go": "@@ -20,7 +20,10 @@ func renderDiff() string {\n \tleft := oldValue\n-\tright := oldValue\n+\tright := newValue\n+\tdebugLine := \"this is a deliberately long line so you can see truncation behavior in narrow terminals\"\n+\tpreviewMode := true\n \treturn left + right\n }\n@@ -40,4 +43,6 @@ func footer() string {\n \treturn status\n }\n+\n+// extra preview row\n",
+      "internal/tui/view.go": "@@ -78,6 +78,8 @@ func renderStatusBar() string {\n \tstatus := currentFile\n+\tmode := \"split\"\n+\thint := \"press s to toggle\"\n \treturn status\n }\n",
+      "docs/demo.txt": "@@ -1,3 +1,5 @@\n old line\n-old second line\n+new second line\n+third line added for preview\n unchanged\n"
+    },
+    "file_statuses": {
+      "internal/tui/diffview.go": "modified",
+      "internal/tui/view.go": "modified",
+      "docs/demo.txt": "modified"
+    },
+    "previous_filenames": {}
+  },
+  "threads": [
+    {
+      "id": "RT_demo_1",
+      "is_resolved": false,
+      "path": "internal/tui/diffview.go",
+      "line": 22,
+      "diff_side": "RIGHT",
+      "comments": [
+        {
+          "id": "RC_demo_1",
+          "body": "このスレッドは diff の直下にどう見えるかを確認するためのものです。",
+          "author": "reviewer",
+          "created_at": "2026-03-11T08:00:00Z"
+        },
+        {
+          "id": "RC_demo_2",
+          "body": "長いコメントの折り返しではなく、横幅制限での切り詰め方を見たいので少し長めにしています。",
+          "author": "author",
+          "created_at": "2026-03-11T08:05:00Z"
+        }
+      ]
+    },
+    {
+      "id": "RT_demo_2",
+      "is_resolved": true,
+      "path": "docs/demo.txt",
+      "line": 2,
+      "diff_side": "LEFT",
+      "comments": [
+        {
+          "id": "RC_demo_3",
+          "body": "resolved thread preview",
+          "author": "reviewer",
+          "created_at": "2026-03-11T07:30:00Z"
+        }
+      ]
+    }
+  ],
+  "open_prs": [
+    {
+      "number": 9001,
+      "title": "Demo: split diff and thread layout preview",
+      "author": "fixture",
+      "updated_at": "2026-03-11T08:05:00Z",
+      "is_draft": false
+    }
+  ]
+}

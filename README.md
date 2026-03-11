@@ -16,6 +16,9 @@ gh pr-review <PR number>
 
 # Or pass a PR URL directly
 gh pr-review https://github.com/owner/repo/pull/123
+
+# Or launch with local fixture data for UI preview
+gh pr-review --fixture basic
 ```
 
 ### Options
@@ -23,8 +26,30 @@ gh pr-review https://github.com/owner/repo/pull/123
 | Option | Description |
 |--------|-------------|
 | `-R`, `--repo <owner/repo>` | Specify repository explicitly |
+| `--fixture <name-or-path>` | Launch the TUI from local fixture data |
 | `-h`, `--help` | Show help |
 | `--version` | Show version |
+
+### UI Preview Fixtures
+
+For manual TUI checks without preparing a real GitHub PR, use fixture mode:
+
+```bash
+gh pr-review --fixture basic
+COLUMNS=100 gh pr-review --fixture basic
+gh pr-review --fixture ./testdata/fixtures/basic.json
+```
+
+Built-in fixtures live under [`testdata/fixtures`](./testdata/fixtures).
+
+Suggested fixtures:
+
+```bash
+gh pr-review --fixture basic
+gh pr-review --fixture rename-heavy
+gh pr-review --fixture thread-heavy
+COLUMNS=140 gh pr-review --fixture wide-split
+```
 
 ## Key Bindings
 

@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestParsePRTarget_Number(t *testing.T) {
 	n, owner, repo, isURL, err := parsePRTarget("123")
@@ -96,6 +100,16 @@ func TestParseCLIArgs_Basic(t *testing.T) {
 	}
 }
 
+func TestParseCLIArgs_Fixture(t *testing.T) {
+	opts, err := parseCLIArgs([]string{"--fixture", "basic"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if opts.fixturePath != "basic" {
+		t.Fatalf("fixturePath = %q, want basic", opts.fixturePath)
+	}
+}
+
 func TestParseCLIArgs_Help(t *testing.T) {
 	opts, err := parseCLIArgs([]string{"--help"})
 	if err != nil {
@@ -127,5 +141,36 @@ func TestParseCLIArgs_TooManyArgs(t *testing.T) {
 	_, err := parseCLIArgs([]string{"1", "2"})
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestResolveFixturePath(t *testing.T) {
+	dir := t.TempDir()
+	originalWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(originalWD)
+	})
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("Chdir: %v", err)
+	}
+
+	fixtureDir := filepath.Join(dir, "testdata", "fixtures")
+	if err := os.MkdirAll(fixtureDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	path := filepath.Join(fixtureDir, "basic.json")
+	if err := os.WriteFile(path, []byte(`{}`), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	resolved, err := resolveFixturePath("basic")
+	if err != nil {
+		t.Fatalf("resolveFixturePath: %v", err)
+	}
+	if resolved != filepath.Join("testdata", "fixtures", "basic.json") {
+		t.Fatalf("resolved = %q, want testdata fixture path", resolved)
 	}
 }

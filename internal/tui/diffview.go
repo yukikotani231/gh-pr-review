@@ -337,7 +337,8 @@ func (m *DiffViewModel) buildSplitDisplayRows(threadsByLine map[int][]int) {
 		leftLine := &m.diffLines[i]
 		rightLine := &m.diffLines[i]
 
-		if dl.Type == diff.LineRemoved {
+		switch dl.Type {
+		case diff.LineRemoved:
 			rightLine = nil
 			rightIdx = -1
 			if i+1 < len(m.diffLines) && m.diffLines[i+1].Type == diff.LineAdded {
@@ -346,7 +347,7 @@ func (m *DiffViewModel) buildSplitDisplayRows(threadsByLine map[int][]int) {
 				m.lineToFirstRow[rightIdx] = rowIdx
 				i++
 			}
-		} else if dl.Type == diff.LineAdded {
+		case diff.LineAdded:
 			leftLine = nil
 			leftIdx = -1
 		}
@@ -413,15 +414,16 @@ func (m *DiffViewModel) renderSplitCell(dl *diff.DiffLine, width int, isLeft boo
 	}
 
 	var lineNum string
-	if isLeft {
+	switch {
+	case isLeft:
 		if dl.OldLineNum > 0 {
 			lineNum = fmt.Sprintf("%4d", dl.OldLineNum)
 		} else {
 			lineNum = "    "
 		}
-	} else if dl.NewLineNum > 0 {
+	case dl.NewLineNum > 0:
 		lineNum = fmt.Sprintf("%4d", dl.NewLineNum)
-	} else {
+	default:
 		lineNum = "    "
 	}
 

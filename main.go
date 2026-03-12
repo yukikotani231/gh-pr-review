@@ -13,6 +13,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/cli/go-gh/v2/pkg/repository"
 
+	"github.com/yukikotani231/gh-pr-review/internal/config"
 	gh "github.com/yukikotani231/gh-pr-review/internal/github"
 	"github.com/yukikotani231/gh-pr-review/internal/tui"
 )
@@ -50,6 +51,19 @@ func main() {
 		return
 	}
 
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+	}
+	modelOpts := []tui.ModelOption{
+		tui.WithInitialDiffMode(cfg.DiffMode),
+		tui.WithDiffModeChangeHandler(func(mode string) {
+			if err := config.Save(config.AppConfig{DiffMode: mode}); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+			}
+		}),
+	}
+
 	if opts.fixturePath != "" {
 		if opts.repoOverride != "" {
 			fmt.Fprintln(os.Stderr, "Error: --fixture cannot be used with --repo")
@@ -71,7 +85,7 @@ func main() {
 			os.Exit(1)
 		}
 		client := gh.NewFixtureClient(fixture)
-		model := tui.NewModel(client, fixture.PullRequest.Number)
+		model := tui.NewModel(client, fixture.PullRequest.Number, modelOpts...)
 		p := tea.NewProgram(model, tea.WithAltScreen())
 		if _, err := p.Run(); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -148,7 +162,7 @@ func main() {
 		}
 	}
 
-	model := tui.NewModel(client, prNumber)
+	model := tui.NewModel(client, prNumber, modelOpts...)
 	p := tea.NewProgram(model, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

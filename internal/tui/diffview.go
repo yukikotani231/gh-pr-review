@@ -103,8 +103,25 @@ func (m *DiffViewModel) ToggleMode() {
 	m.buildDisplayRows()
 }
 
+func (m *DiffViewModel) SetMode(mode string) {
+	switch mode {
+	case "split":
+		m.mode = diffModeSplit
+	default:
+		m.mode = diffModeUnified
+	}
+	m.buildDisplayRows()
+}
+
 func (m *DiffViewModel) Mode() diffMode {
 	return m.mode
+}
+
+func (m *DiffViewModel) ModeString() string {
+	if m.mode == diffModeSplit {
+		return "split"
+	}
+	return "unified"
 }
 
 func (m *DiffViewModel) ModeLabel() string {

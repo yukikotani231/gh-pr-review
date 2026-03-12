@@ -340,10 +340,29 @@ func TestDiffView_ToggleMode_Split(t *testing.T) {
 	if !m.CanRenderSplit() {
 		t.Fatal("expected split mode to be renderable at width 80")
 	}
+	if got := m.ModeString(); got != "split" {
+		t.Fatalf("ModeString() = %q, want split", got)
+	}
 
 	view := m.View()
 	if !strings.Contains(view, "old line2") || !strings.Contains(view, "new line2") {
 		t.Fatalf("split view should contain both sides of changed line, got %q", view)
+	}
+}
+
+func TestDiffView_SetMode(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(testDiffLines(), nil)
+
+	m.SetMode("split")
+	if got := m.ModeString(); got != "split" {
+		t.Fatalf("ModeString() = %q, want split", got)
+	}
+
+	m.SetMode("unified")
+	if got := m.ModeString(); got != "unified" {
+		t.Fatalf("ModeString() = %q, want unified", got)
 	}
 }
 

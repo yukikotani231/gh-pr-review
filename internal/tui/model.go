@@ -73,6 +73,8 @@ type Model struct {
 
 	// Scroll position cache per file
 	scrollCache map[string]scrollPosition
+
+	onDiffModeChange func(string)
 }
 
 type scrollPosition struct {
@@ -81,7 +83,21 @@ type scrollPosition struct {
 	threadCursor int
 }
 
-func NewModel(client *gh.Client, prNumber int) Model {
+type ModelOption func(*Model)
+
+func WithInitialDiffMode(mode string) ModelOption {
+	return func(m *Model) {
+		m.diffView.SetMode(mode)
+	}
+}
+
+func WithDiffModeChangeHandler(fn func(string)) ModelOption {
+	return func(m *Model) {
+		m.onDiffModeChange = fn
+	}
+}
+
+func NewModel(client *gh.Client, prNumber int, opts ...ModelOption) Model {
 	h := help.New()
 	h.ShowAll = false
 
@@ -90,7 +106,7 @@ func NewModel(client *gh.Client, prNumber int) Model {
 	ta.ShowLineNumbers = false
 	ta.SetHeight(3)
 
-	return Model{
+	model := Model{
 		state:       stateLoading,
 		client:      client,
 		prNumber:    prNumber,
@@ -102,6 +118,10 @@ func NewModel(client *gh.Client, prNumber int) Model {
 		mode:        modeNormal,
 		scrollCache: make(map[string]scrollPosition),
 	}
+	for _, opt := range opts {
+		opt(&model)
+	}
+	return model
 }
 
 func (m Model) Init() tea.Cmd {
@@ -114,6 +134,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.updateLayout()
+		m.updateDiffModeStatus()
 		return m, nil
 
 	case tea.KeyMsg:
@@ -397,9 +418,24 @@ func (m *Model) handleRightPaneKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.diffView.NextHunk()
 	case key.Matches(msg, m.keyMap.PrevHunk):
 		m.diffView.PrevHunk()
+	case key.Matches(msg, m.keyMap.ToggleDiffMode):
+		m.diffView.ToggleMode()
+		if m.onDiffModeChange != nil {
+			m.onDiffModeChange(m.diffView.ModeString())
+		}
+		m.updateDiffModeStatus()
 	}
 
 	return m, nil
+}
+
+func (m *Model) updateDiffModeStatus() {
+	switch {
+	case m.diffView.Mode() == diffModeSplit && !m.diffView.CanRenderSplit():
+		m.statusMsg = splitTooNarrowMsg
+	case m.statusMsg == splitTooNarrowMsg:
+		m.statusMsg = ""
+	}
 }
 
 func (m *Model) handleHelpKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {

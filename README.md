@@ -51,6 +51,8 @@ gh pr-review --fixture thread-heavy
 COLUMNS=140 gh pr-review --fixture wide-split
 ```
 
+The diff view mode is also persisted across launches. If you switch to split view with `s`, the next start will reuse that mode.
+
 ## Key Bindings
 
 ### Navigation

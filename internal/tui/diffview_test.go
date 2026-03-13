@@ -19,6 +19,17 @@ func testDiffLines() []diff.DiffLine {
  line5`)
 }
 
+func testDiffLinesMultipleChanges() []diff.DiffLine {
+	return diff.Parse(`@@ -1,6 +1,6 @@
+ line1
+-old line2
+-old line3
++new line2
++new line3
+ line4
+ line5`)
+}
+
 func testThreads() []gh.ReviewThread {
 	return []gh.ReviewThread{
 		{
@@ -324,6 +335,109 @@ func TestDiffView_View_NonEmpty(t *testing.T) {
 	view := m.View()
 	if view == "" || view == "(no diff available)" {
 		t.Errorf("expected non-empty view, got %q", view)
+	}
+}
+
+func TestDiffView_ToggleMode_Split(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(testDiffLines(), nil)
+
+	m.ToggleMode()
+
+	if m.Mode() != diffModeSplit {
+		t.Fatalf("mode = %v, want split", m.Mode())
+	}
+	if !m.CanRenderSplit() {
+		t.Fatal("expected split mode to be renderable at width 80")
+	}
+	if got := m.ModeString(); got != "split" {
+		t.Fatalf("ModeString() = %q, want split", got)
+	}
+
+	view := m.View()
+	if !strings.Contains(view, "old line2") || !strings.Contains(view, "new line2") {
+		t.Fatalf("split view should contain both sides of changed line, got %q", view)
+	}
+}
+
+func TestDiffView_SetMode(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(testDiffLines(), nil)
+
+	m.SetMode("split")
+	if got := m.ModeString(); got != "split" {
+		t.Fatalf("ModeString() = %q, want split", got)
+	}
+
+	m.SetMode("unified")
+	if got := m.ModeString(); got != "unified" {
+		t.Fatalf("ModeString() = %q, want unified", got)
+	}
+}
+
+func TestDiffView_SplitFallbackOnNarrowWidth(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(40, 20)
+	m.SetContent(testDiffLines(), nil)
+
+	m.ToggleMode()
+
+	if m.Mode() != diffModeSplit {
+		t.Fatalf("mode = %v, want split preference", m.Mode())
+	}
+	if m.CanRenderSplit() {
+		t.Fatal("expected split mode to fall back at narrow width")
+	}
+	if got := m.ModeLabel(); got != "[split->unified]" {
+		t.Fatalf("ModeLabel() = %q, want fallback label", got)
+	}
+}
+
+func TestDiffView_SplitAlignsRemovedAndAddedRows(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(testDiffLines(), nil)
+
+	m.ToggleMode()
+	m.buildDisplayRows()
+
+	if got := m.lineToFirstRow[2]; got != m.lineToFirstRow[3] {
+		t.Fatalf("removed and added line should share a split row, got %d and %d", m.lineToFirstRow[2], m.lineToFirstRow[3])
+	}
+}
+
+func TestDiffView_SplitAlignsMultipleRemovedAndAddedRows(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(testDiffLinesMultipleChanges(), nil)
+
+	m.ToggleMode()
+	m.buildDisplayRows()
+
+	if got := m.lineToFirstRow[2]; got != m.lineToFirstRow[4] {
+		t.Fatalf("first removed/added pair should share a split row, got %d and %d", m.lineToFirstRow[2], m.lineToFirstRow[4])
+	}
+	if got := m.lineToFirstRow[3]; got != m.lineToFirstRow[5] {
+		t.Fatalf("second removed/added pair should share a split row, got %d and %d", m.lineToFirstRow[3], m.lineToFirstRow[5])
+	}
+}
+
+func TestDiffView_ToggleMode_ClampsScroll(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 3)
+	m.SetContent(testDiffLines(), nil)
+	m.scrollY = len(m.displayRows) - 1
+
+	m.ToggleMode()
+
+	maxScroll := len(m.displayRows) - m.height
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	if m.scrollY > maxScroll {
+		t.Fatalf("scrollY = %d, want <= %d after mode toggle", m.scrollY, maxScroll)
 	}
 }
 

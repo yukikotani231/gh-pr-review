@@ -3,27 +3,28 @@ package tui
 import "github.com/charmbracelet/bubbles/key"
 
 type KeyMap struct {
-	Up            key.Binding
-	Down          key.Binding
-	ToggleViewed  key.Binding
-	Tab           key.Binding
-	Quit          key.Binding
-	HalfPageUp    key.Binding
-	HalfPageDown  key.Binding
-	Comment       key.Binding
-	Reply         key.Binding
-	Resolve       key.Binding
-	NextThread    key.Binding
-	PrevThread    key.Binding
-	SubmitReview  key.Binding
-	Submit        key.Binding
-	Cancel        key.Binding
-	NextUnviewed  key.Binding
-	PrevUnviewed  key.Binding
-	NextHunk      key.Binding
-	PrevHunk      key.Binding
-	OpenInBrowser key.Binding
-	Help          key.Binding
+	Up             key.Binding
+	Down           key.Binding
+	ToggleViewed   key.Binding
+	Tab            key.Binding
+	Quit           key.Binding
+	HalfPageUp     key.Binding
+	HalfPageDown   key.Binding
+	Comment        key.Binding
+	Reply          key.Binding
+	Resolve        key.Binding
+	NextThread     key.Binding
+	PrevThread     key.Binding
+	SubmitReview   key.Binding
+	Submit         key.Binding
+	Cancel         key.Binding
+	NextUnviewed   key.Binding
+	PrevUnviewed   key.Binding
+	NextHunk       key.Binding
+	PrevHunk       key.Binding
+	ToggleDiffMode key.Binding
+	OpenInBrowser  key.Binding
+	Help           key.Binding
 }
 
 func DefaultKeyMap() KeyMap {
@@ -104,6 +105,10 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("{"),
 			key.WithHelp("{", "prev hunk"),
 		),
+		ToggleDiffMode: key.NewBinding(
+			key.WithKeys("s"),
+			key.WithHelp("s", "toggle split"),
+		),
 		OpenInBrowser: key.NewBinding(
 			key.WithKeys("o"),
 			key.WithHelp("o", "open in browser"),
@@ -123,7 +128,7 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down, k.HalfPageUp, k.HalfPageDown},
 		{k.Tab, k.NextUnviewed, k.PrevUnviewed, k.ToggleViewed},
-		{k.NextHunk, k.PrevHunk, k.NextThread, k.PrevThread},
+		{k.NextHunk, k.PrevHunk, k.NextThread, k.PrevThread, k.ToggleDiffMode},
 		{k.Comment, k.Reply, k.Resolve, k.SubmitReview},
 		{k.OpenInBrowser, k.Help, k.Quit},
 	}

@@ -29,6 +29,18 @@ var (
 
 	threadHighlightStyle = lipgloss.NewStyle().
 				Background(lipgloss.Color("236"))
+
+	splitAddedStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("2"))
+
+	splitRemovedStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("1"))
+
+	splitHunkStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("6")).Bold(true)
+
+	splitLineNumStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("240"))
 )
 
 type displayRow struct {
@@ -36,6 +48,16 @@ type displayRow struct {
 	diffLineIdx int // -1 for comment/thread rows
 	threadIdx   int // index into threads for this file, -1 if not a thread row
 }
+
+type diffMode int
+
+const (
+	diffModeUnified diffMode = iota
+	diffModeSplit
+)
+
+const minSplitDiffWidth = 60
+const splitTooNarrowMsg = "Split diff requires a wider pane"
 
 type DiffViewModel struct {
 	diffLines []diff.DiffLine
@@ -49,11 +71,13 @@ type DiffViewModel struct {
 	displayRows    []displayRow
 	lineToFirstRow map[int]int // diffLine index -> first displayRow index
 	threadCursor   int         // which thread the cursor is on (-1 for none)
+	mode           diffMode
 }
 
 func NewDiffViewModel() DiffViewModel {
 	return DiffViewModel{
 		threadCursor: -1,
+		mode:         diffModeUnified,
 	}
 }
 
@@ -68,7 +92,51 @@ func (m *DiffViewModel) SetContent(lines []diff.DiffLine, threads []gh.ReviewThr
 	m.cursor = 0
 	m.scrollY = 0
 	m.threadCursor = -1
-	m.buildDisplayRows()
+	m.rebuildDisplayRows()
+}
+
+func (m *DiffViewModel) ToggleMode() {
+	if m.mode == diffModeUnified {
+		m.mode = diffModeSplit
+	} else {
+		m.mode = diffModeUnified
+	}
+	m.rebuildDisplayRows()
+}
+
+func (m *DiffViewModel) SetMode(mode string) {
+	switch mode {
+	case "split":
+		m.mode = diffModeSplit
+	default:
+		m.mode = diffModeUnified
+	}
+	m.rebuildDisplayRows()
+}
+
+func (m *DiffViewModel) Mode() diffMode {
+	return m.mode
+}
+
+func (m *DiffViewModel) ModeString() string {
+	if m.mode == diffModeSplit {
+		return "split"
+	}
+	return "unified"
+}
+
+func (m *DiffViewModel) ModeLabel() string {
+	if m.mode == diffModeSplit && m.CanRenderSplit() {
+		return "[split]"
+	}
+	if m.mode == diffModeSplit {
+		return "[split->unified]"
+	}
+	return "[unified]"
+}
+
+func (m *DiffViewModel) CanRenderSplit() bool {
+	return m.width >= minSplitDiffWidth
 }
 
 func (m *DiffViewModel) CursorLine() *diff.DiffLine {
@@ -241,8 +309,11 @@ func (m *DiffViewModel) buildDisplayRows() {
 	m.displayRows = nil
 	m.lineToFirstRow = make(map[int]int)
 
-	// Build thread lookup: which threads attach to which diff line index
 	threadsByLine := m.buildThreadLookup()
+	if m.mode == diffModeSplit && m.CanRenderSplit() {
+		m.buildSplitDisplayRows(threadsByLine)
+		return
+	}
 
 	for i, dl := range m.diffLines {
 		m.lineToFirstRow[i] = len(m.displayRows)
@@ -254,15 +325,187 @@ func (m *DiffViewModel) buildDisplayRows() {
 			threadIdx:   -1,
 		})
 
-		// Add comment threads after this line
 		if threads, ok := threadsByLine[i]; ok {
-			for _, tidx := range threads {
-				t := m.threads[tidx]
-				commentRows := m.renderThread(t, tidx)
-				m.displayRows = append(m.displayRows, commentRows...)
-			}
+			m.appendThreadRows(threads)
 		}
 	}
+}
+
+func (m *DiffViewModel) buildSplitDisplayRows(threadsByLine map[int][]int) {
+	for i := 0; i < len(m.diffLines); i++ {
+		dl := m.diffLines[i]
+
+		if dl.Type == diff.LineHunkHeader {
+			rowIdx := len(m.displayRows)
+			m.lineToFirstRow[i] = rowIdx
+			rendered := diff.RenderLine(dl, m.width, i == m.cursor)
+			m.displayRows = append(m.displayRows, displayRow{
+				text:        m.fitRow(rendered),
+				diffLineIdx: i,
+				threadIdx:   -1,
+			})
+			if threads, ok := threadsByLine[i]; ok {
+				m.appendThreadRows(threads)
+			}
+			continue
+		}
+
+		if dl.Type == diff.LineRemoved || dl.Type == diff.LineAdded {
+			next := i
+			var removedIdxs []int
+			var addedIdxs []int
+			for next < len(m.diffLines) && m.diffLines[next].Type == diff.LineRemoved {
+				removedIdxs = append(removedIdxs, next)
+				next++
+			}
+			for next < len(m.diffLines) && m.diffLines[next].Type == diff.LineAdded {
+				addedIdxs = append(addedIdxs, next)
+				next++
+			}
+			if len(removedIdxs) == 0 && dl.Type == diff.LineAdded {
+				addedIdxs = append(addedIdxs, i)
+				next = i + 1
+				for next < len(m.diffLines) && m.diffLines[next].Type == diff.LineAdded {
+					addedIdxs = append(addedIdxs, next)
+					next++
+				}
+			}
+			m.appendSplitChangeBlock(removedIdxs, addedIdxs, threadsByLine)
+			i = next - 1
+			continue
+		}
+
+		rowIdx := len(m.displayRows)
+		m.lineToFirstRow[i] = rowIdx
+		rendered := m.renderSplitRow(&m.diffLines[i], &m.diffLines[i], i == m.cursor)
+		m.displayRows = append(m.displayRows, displayRow{
+			text:        rendered,
+			diffLineIdx: i,
+			threadIdx:   -1,
+		})
+		if threads, ok := threadsByLine[i]; ok {
+			m.appendThreadRows(threads)
+		}
+	}
+}
+
+func (m *DiffViewModel) appendSplitChangeBlock(removedIdxs, addedIdxs []int, threadsByLine map[int][]int) {
+	rows := max(len(removedIdxs), len(addedIdxs))
+	for row := 0; row < rows; row++ {
+		leftIdx := nthIndexOrDefault(removedIdxs, row, -1)
+		rightIdx := nthIndexOrDefault(addedIdxs, row, -1)
+		rowIdx := len(m.displayRows)
+
+		leftLine := m.diffLineAt(leftIdx)
+		rightLine := m.diffLineAt(rightIdx)
+		if leftIdx >= 0 {
+			m.lineToFirstRow[leftIdx] = rowIdx
+		}
+		if rightIdx >= 0 {
+			m.lineToFirstRow[rightIdx] = rowIdx
+		}
+
+		rendered := m.renderSplitRow(leftLine, rightLine, leftIdx == m.cursor || rightIdx == m.cursor)
+		m.displayRows = append(m.displayRows, displayRow{
+			text:        rendered,
+			diffLineIdx: max(leftIdx, rightIdx),
+			threadIdx:   -1,
+		})
+
+		threadSet := orderedThreadIndexes(threadsByLine[leftIdx], threadsByLine[rightIdx])
+		m.appendThreadRows(threadSet)
+	}
+}
+
+func (m *DiffViewModel) diffLineAt(idx int) *diff.DiffLine {
+	if idx < 0 || idx >= len(m.diffLines) {
+		return nil
+	}
+	return &m.diffLines[idx]
+}
+
+func nthIndexOrDefault(indexes []int, n, fallback int) int {
+	if n < 0 || n >= len(indexes) {
+		return fallback
+	}
+	return indexes[n]
+}
+
+func (m *DiffViewModel) appendThreadRows(threadIdxs []int) {
+	for _, tidx := range threadIdxs {
+		t := m.threads[tidx]
+		commentRows := m.renderThread(t, tidx)
+		m.displayRows = append(m.displayRows, commentRows...)
+	}
+}
+
+func orderedThreadIndexes(left, right []int) []int {
+	if len(left) == 0 {
+		return append([]int(nil), right...)
+	}
+	result := append([]int(nil), left...)
+	seen := make(map[int]struct{}, len(left))
+	for _, idx := range left {
+		seen[idx] = struct{}{}
+	}
+	for _, idx := range right {
+		if _, ok := seen[idx]; ok {
+			continue
+		}
+		result = append(result, idx)
+	}
+	return result
+}
+
+func (m *DiffViewModel) renderSplitRow(left, right *diff.DiffLine, highlighted bool) string {
+	leftWidth := max(1, (m.width-3)/2)
+	rightWidth := max(1, m.width-leftWidth-3)
+	leftRendered := m.renderSplitCell(left, leftWidth, true)
+	rightRendered := m.renderSplitCell(right, rightWidth, false)
+	row := lipgloss.JoinHorizontal(lipgloss.Top, leftRendered, " | ", rightRendered)
+	if highlighted {
+		row = lipgloss.NewStyle().Background(lipgloss.Color("237")).Render(row)
+	}
+	return m.fitRow(row)
+}
+
+func (m *DiffViewModel) renderSplitCell(dl *diff.DiffLine, width int, isLeft bool) string {
+	if width < 1 {
+		width = 1
+	}
+	if dl == nil {
+		return lipgloss.NewStyle().Width(width).Render("")
+	}
+	if dl.Type == diff.LineHunkHeader {
+		return lipgloss.NewStyle().Width(width).Render(splitHunkStyle.Render(dl.Content))
+	}
+
+	var lineNum string
+	switch {
+	case isLeft:
+		if dl.OldLineNum > 0 {
+			lineNum = fmt.Sprintf("%4d", dl.OldLineNum)
+		} else {
+			lineNum = "    "
+		}
+	case dl.NewLineNum > 0:
+		lineNum = fmt.Sprintf("%4d", dl.NewLineNum)
+	default:
+		lineNum = "    "
+	}
+
+	contentWidth := max(1, width-5)
+	content := truncateDisplay(dl.Content, contentWidth)
+	contentStyle := lipgloss.NewStyle()
+	switch dl.Type {
+	case diff.LineAdded:
+		contentStyle = splitAddedStyle
+	case diff.LineRemoved:
+		contentStyle = splitRemovedStyle
+	}
+
+	cell := splitLineNumStyle.Render(lineNum) + " " + contentStyle.Render(content)
+	return lipgloss.NewStyle().Width(width).MaxWidth(width).Render(cell)
 }
 
 func (m *DiffViewModel) buildThreadLookup() map[int][]int {
@@ -340,6 +583,18 @@ func (m *DiffViewModel) renderThread(t gh.ReviewThread, tidx int) []displayRow {
 
 func (m *DiffViewModel) fitRow(s string) string {
 	return lipgloss.NewStyle().MaxWidth(max(1, m.width)).Render(s)
+}
+
+func (m *DiffViewModel) rebuildDisplayRows() {
+	m.buildDisplayRows()
+	maxScroll := len(m.displayRows) - m.height
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	if m.scrollY > maxScroll {
+		m.scrollY = maxScroll
+	}
+	m.ensureVisible()
 }
 
 func (m *DiffViewModel) View() string {

@@ -31,10 +31,12 @@ var (
 				Background(lipgloss.Color("236"))
 
 	splitAddedStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("2"))
+			Foreground(lipgloss.Color("255")).
+			Background(lipgloss.Color("28"))
 
 	splitRemovedStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("1"))
+				Foreground(lipgloss.Color("255")).
+				Background(lipgloss.Color("124"))
 
 	splitHunkStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("6")).Bold(true)

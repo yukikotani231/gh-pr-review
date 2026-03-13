@@ -22,6 +22,12 @@ go test -v -run TestParse_SingleHunk ./internal/diff/
 # Lint
 golangci-lint run ./...
 
+# Install local git hooks
+./scripts/install-git-hooks.sh
+
+# Run the hook manually
+./.githooks/pre-commit
+
 # Vet
 go vet ./...
 

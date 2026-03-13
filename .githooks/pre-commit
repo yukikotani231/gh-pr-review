@@ -1,0 +1,27 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+staged_go_files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.go')
+if [ -n "$staged_go_files" ]; then
+  echo "Running gofmt on staged Go files..."
+  # shellcheck disable=SC2086
+  gofmt -w $staged_go_files
+  # shellcheck disable=SC2086
+  git add $staged_go_files
+fi
+
+echo "Running go test..."
+go test -race -count=1 ./...
+
+echo "Running go vet..."
+go vet ./...
+
+if command -v golangci-lint >/dev/null 2>&1; then
+  echo "Running golangci-lint..."
+  golangci-lint run ./...
+else
+  echo "Skipping golangci-lint (command not found)" >&2
+fi

@@ -119,6 +119,12 @@ go test -race ./...
 # Lint
 golangci-lint run ./...
 
+# Install git hooks
+./scripts/install-git-hooks.sh
+
+# Run the pre-commit hook manually
+./.githooks/pre-commit
+
 # Install locally
 gh extension install .
 
@@ -129,3 +135,22 @@ gh extension remove pr-review
 ## License
 
 MIT
+
+## Git Hooks
+
+This repository includes a plain Git pre-commit hook for local checks before commit.
+
+```bash
+# Install the git hook
+./scripts/install-git-hooks.sh
+
+# Run the hook manually
+./.githooks/pre-commit
+```
+
+The hook runs:
+
+- `gofmt`
+- `go test -race -count=1 ./...`
+- `go vet ./...`
+- `golangci-lint run ./...` when `golangci-lint` is installed

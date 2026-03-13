@@ -170,7 +170,8 @@ func RenderLine(dl DiffLine, width int, highlighted bool) string {
 
 	if highlighted {
 		line = lipgloss.NewStyle().
-			Background(lipgloss.Color("237")).
+			Bold(true).
+			Underline(true).
 			Render(line)
 	}
 

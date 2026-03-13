@@ -466,7 +466,7 @@ func (m *DiffViewModel) renderSplitRow(left, right *diff.DiffLine, highlighted b
 	rightRendered := m.renderSplitCell(right, rightWidth, false)
 	row := lipgloss.JoinHorizontal(lipgloss.Top, leftRendered, " | ", rightRendered)
 	if highlighted {
-		row = lipgloss.NewStyle().Background(lipgloss.Color("237")).Render(row)
+		row = lipgloss.NewStyle().Bold(true).Underline(true).Render(row)
 	}
 	return m.fitRow(row)
 }

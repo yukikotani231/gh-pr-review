@@ -134,6 +134,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.updateLayout()
+		m.updateDiffModeStatus()
 		return m, nil
 
 	case tea.KeyMsg:
@@ -422,14 +423,19 @@ func (m *Model) handleRightPaneKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.onDiffModeChange != nil {
 			m.onDiffModeChange(m.diffView.ModeString())
 		}
-		if m.diffView.Mode() == diffModeSplit && !m.diffView.CanRenderSplit() {
-			m.statusMsg = "Split diff requires a wider pane"
-		} else {
-			m.statusMsg = ""
-		}
+		m.updateDiffModeStatus()
 	}
 
 	return m, nil
+}
+
+func (m *Model) updateDiffModeStatus() {
+	switch {
+	case m.diffView.Mode() == diffModeSplit && !m.diffView.CanRenderSplit():
+		m.statusMsg = splitTooNarrowMsg
+	case m.statusMsg == splitTooNarrowMsg:
+		m.statusMsg = ""
+	}
 }
 
 func (m *Model) handleHelpKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {

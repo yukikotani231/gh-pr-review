@@ -57,6 +57,7 @@ const (
 )
 
 const minSplitDiffWidth = 60
+const splitTooNarrowMsg = "Split diff requires a wider pane"
 
 type DiffViewModel struct {
 	diffLines []diff.DiffLine
@@ -91,7 +92,7 @@ func (m *DiffViewModel) SetContent(lines []diff.DiffLine, threads []gh.ReviewThr
 	m.cursor = 0
 	m.scrollY = 0
 	m.threadCursor = -1
-	m.buildDisplayRows()
+	m.rebuildDisplayRows()
 }
 
 func (m *DiffViewModel) ToggleMode() {
@@ -100,7 +101,7 @@ func (m *DiffViewModel) ToggleMode() {
 	} else {
 		m.mode = diffModeUnified
 	}
-	m.buildDisplayRows()
+	m.rebuildDisplayRows()
 }
 
 func (m *DiffViewModel) SetMode(mode string) {
@@ -110,7 +111,7 @@ func (m *DiffViewModel) SetMode(mode string) {
 	default:
 		m.mode = diffModeUnified
 	}
-	m.buildDisplayRows()
+	m.rebuildDisplayRows()
 }
 
 func (m *DiffViewModel) Mode() diffMode {
@@ -333,10 +334,10 @@ func (m *DiffViewModel) buildDisplayRows() {
 func (m *DiffViewModel) buildSplitDisplayRows(threadsByLine map[int][]int) {
 	for i := 0; i < len(m.diffLines); i++ {
 		dl := m.diffLines[i]
-		rowIdx := len(m.displayRows)
-		m.lineToFirstRow[i] = rowIdx
 
 		if dl.Type == diff.LineHunkHeader {
+			rowIdx := len(m.displayRows)
+			m.lineToFirstRow[i] = rowIdx
 			rendered := diff.RenderLine(dl, m.width, i == m.cursor)
 			m.displayRows = append(m.displayRows, displayRow{
 				text:        m.fitRow(rendered),
@@ -349,24 +350,59 @@ func (m *DiffViewModel) buildSplitDisplayRows(threadsByLine map[int][]int) {
 			continue
 		}
 
-		leftIdx := i
-		rightIdx := i
-		leftLine := &m.diffLines[i]
-		rightLine := &m.diffLines[i]
-
-		switch dl.Type {
-		case diff.LineRemoved:
-			rightLine = nil
-			rightIdx = -1
-			if i+1 < len(m.diffLines) && m.diffLines[i+1].Type == diff.LineAdded {
-				rightIdx = i + 1
-				rightLine = &m.diffLines[rightIdx]
-				m.lineToFirstRow[rightIdx] = rowIdx
-				i++
+		if dl.Type == diff.LineRemoved || dl.Type == diff.LineAdded {
+			next := i
+			var removedIdxs []int
+			var addedIdxs []int
+			for next < len(m.diffLines) && m.diffLines[next].Type == diff.LineRemoved {
+				removedIdxs = append(removedIdxs, next)
+				next++
 			}
-		case diff.LineAdded:
-			leftLine = nil
-			leftIdx = -1
+			for next < len(m.diffLines) && m.diffLines[next].Type == diff.LineAdded {
+				addedIdxs = append(addedIdxs, next)
+				next++
+			}
+			if len(removedIdxs) == 0 && dl.Type == diff.LineAdded {
+				addedIdxs = append(addedIdxs, i)
+				next = i + 1
+				for next < len(m.diffLines) && m.diffLines[next].Type == diff.LineAdded {
+					addedIdxs = append(addedIdxs, next)
+					next++
+				}
+			}
+			m.appendSplitChangeBlock(removedIdxs, addedIdxs, threadsByLine)
+			i = next - 1
+			continue
+		}
+
+		rowIdx := len(m.displayRows)
+		m.lineToFirstRow[i] = rowIdx
+		rendered := m.renderSplitRow(&m.diffLines[i], &m.diffLines[i], i == m.cursor)
+		m.displayRows = append(m.displayRows, displayRow{
+			text:        rendered,
+			diffLineIdx: i,
+			threadIdx:   -1,
+		})
+		if threads, ok := threadsByLine[i]; ok {
+			m.appendThreadRows(threads)
+		}
+	}
+}
+
+func (m *DiffViewModel) appendSplitChangeBlock(removedIdxs, addedIdxs []int, threadsByLine map[int][]int) {
+	rows := max(len(removedIdxs), len(addedIdxs))
+	for row := 0; row < rows; row++ {
+		leftIdx := nthIndexOrDefault(removedIdxs, row, -1)
+		rightIdx := nthIndexOrDefault(addedIdxs, row, -1)
+		rowIdx := len(m.displayRows)
+
+		leftLine := m.diffLineAt(leftIdx)
+		rightLine := m.diffLineAt(rightIdx)
+		if leftIdx >= 0 {
+			m.lineToFirstRow[leftIdx] = rowIdx
+		}
+		if rightIdx >= 0 {
+			m.lineToFirstRow[rightIdx] = rowIdx
 		}
 
 		rendered := m.renderSplitRow(leftLine, rightLine, leftIdx == m.cursor || rightIdx == m.cursor)
@@ -379,6 +415,20 @@ func (m *DiffViewModel) buildSplitDisplayRows(threadsByLine map[int][]int) {
 		threadSet := orderedThreadIndexes(threadsByLine[leftIdx], threadsByLine[rightIdx])
 		m.appendThreadRows(threadSet)
 	}
+}
+
+func (m *DiffViewModel) diffLineAt(idx int) *diff.DiffLine {
+	if idx < 0 || idx >= len(m.diffLines) {
+		return nil
+	}
+	return &m.diffLines[idx]
+}
+
+func nthIndexOrDefault(indexes []int, n, fallback int) int {
+	if n < 0 || n >= len(indexes) {
+		return fallback
+	}
+	return indexes[n]
 }
 
 func (m *DiffViewModel) appendThreadRows(threadIdxs []int) {
@@ -533,6 +583,18 @@ func (m *DiffViewModel) renderThread(t gh.ReviewThread, tidx int) []displayRow {
 
 func (m *DiffViewModel) fitRow(s string) string {
 	return lipgloss.NewStyle().MaxWidth(max(1, m.width)).Render(s)
+}
+
+func (m *DiffViewModel) rebuildDisplayRows() {
+	m.buildDisplayRows()
+	maxScroll := len(m.displayRows) - m.height
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	if m.scrollY > maxScroll {
+		m.scrollY = maxScroll
+	}
+	m.ensureVisible()
 }
 
 func (m *DiffViewModel) View() string {

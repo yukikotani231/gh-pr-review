@@ -119,12 +119,6 @@ go test -race ./...
 # Lint
 golangci-lint run ./...
 
-# Install git hooks
-./scripts/install-git-hooks.sh
-
-# Run the pre-commit hook manually
-./.githooks/pre-commit
-
 # Install locally
 gh extension install .
 

@@ -282,9 +282,16 @@ func (m Model) leftPaneWidth() int {
 	}
 
 	w := m.width * 30 / 100
+	if m.diffView.Mode() == diffModeSplit {
+		w = m.width * 22 / 100
+	}
 	if m.width >= 40 {
-		if w < 20 {
-			w = 20
+		minPaneWidth := 20
+		if m.diffView.Mode() == diffModeSplit {
+			minPaneWidth = 16
+		}
+		if w < minPaneWidth {
+			w = minPaneWidth
 		}
 		if w > m.width-20 {
 			w = m.width - 20

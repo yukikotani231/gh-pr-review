@@ -58,7 +58,7 @@ const (
 	diffModeSplit
 )
 
-const minSplitDiffWidth = 60
+const minSplitDiffWidth = 40
 const splitTooNarrowMsg = "Split diff requires a wider pane"
 
 type DiffViewModel struct {

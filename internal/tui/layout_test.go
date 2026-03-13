@@ -24,3 +24,20 @@ func TestLayout_NarrowTerminal_ClampSizes(t *testing.T) {
 		t.Fatalf("diffView height should be >=1, got %d", m.diffView.height)
 	}
 }
+
+func TestLayout_SplitMode_PrioritizesRightPaneWidth(t *testing.T) {
+	m := NewModel(nil, 1)
+	m.width = 100
+	m.height = 20
+
+	defaultLeft := m.leftPaneWidth()
+	m.diffView.SetMode("split")
+	splitLeft := m.leftPaneWidth()
+
+	if splitLeft >= defaultLeft {
+		t.Fatalf("split left pane width = %d, want less than default %d", splitLeft, defaultLeft)
+	}
+	if m.rightPaneWidth() <= 60 {
+		t.Fatalf("rightPaneWidth = %d, want wider pane for split mode", m.rightPaneWidth())
+	}
+}

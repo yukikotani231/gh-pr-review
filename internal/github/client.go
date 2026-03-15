@@ -336,7 +336,7 @@ func (c *Client) fetchPendingReviewThreads(number int) ([]ReviewThread, error) {
 	}
 
 	if err := c.gql.Do(pendingReviewCommentsQuery, variables, &resp); err != nil {
-		return nil, fmt.Errorf("Pending review コメントの取得に失敗: %w", err)
+		return nil, fmt.Errorf("pending review コメントの取得に失敗: %w", err)
 	}
 
 	var pendingThreads []ReviewThread

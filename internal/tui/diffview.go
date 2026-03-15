@@ -170,18 +170,12 @@ func (m *DiffViewModel) CursorThread() *gh.ReviewThread {
 
 func (m *DiffViewModel) MoveUp() {
 	m.threadCursor = -1
-	if m.cursor > 0 {
-		m.cursor--
-		m.ensureVisible()
-	}
+	m.moveCursorByDisplayRows(-1)
 }
 
 func (m *DiffViewModel) MoveDown() {
 	m.threadCursor = -1
-	if m.cursor < len(m.diffLines)-1 {
-		m.cursor++
-		m.ensureVisible()
-	}
+	m.moveCursorByDisplayRows(1)
 }
 
 func (m *DiffViewModel) HalfPageUp() {
@@ -302,6 +296,40 @@ func (m *DiffViewModel) ensureVisible() {
 	} else if row >= m.scrollY+m.height {
 		m.scrollY = row - m.height + 1
 	}
+}
+
+func (m *DiffViewModel) moveCursorByDisplayRows(delta int) {
+	if len(m.diffLines) == 0 || delta == 0 {
+		return
+	}
+
+	next := m.cursor + delta
+	if next < 0 {
+		next = 0
+	} else if next >= len(m.diffLines) {
+		next = len(m.diffLines) - 1
+	}
+
+	currentRow, hasCurrentRow := m.lineToFirstRow[m.cursor]
+	for next > 0 && next < len(m.diffLines)-1 {
+		nextRow, ok := m.lineToFirstRow[next]
+		if !ok {
+			break
+		}
+		if !hasCurrentRow || nextRow != currentRow {
+			break
+		}
+		next += delta
+	}
+
+	if next < 0 {
+		next = 0
+	} else if next >= len(m.diffLines) {
+		next = len(m.diffLines) - 1
+	}
+
+	m.cursor = next
+	m.ensureVisible()
 }
 
 func (m *DiffViewModel) ScrollUp() {

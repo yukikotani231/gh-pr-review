@@ -485,6 +485,32 @@ func TestDiffView_SplitAlignsMultipleRemovedAndAddedRows(t *testing.T) {
 	}
 }
 
+func TestDiffView_SplitMoveDownSkipsSharedDisplayRow(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(testDiffLines(), nil)
+	m.ToggleMode()
+
+	m.cursor = 2 // removed line
+	m.MoveDown()
+	if m.cursor != 4 {
+		t.Fatalf("cursor = %d, want 4 to skip added line on same display row", m.cursor)
+	}
+}
+
+func TestDiffView_SplitMoveUpSkipsSharedDisplayRow(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(testDiffLines(), nil)
+	m.ToggleMode()
+
+	m.cursor = 3 // added line
+	m.MoveUp()
+	if m.cursor != 1 {
+		t.Fatalf("cursor = %d, want 1 to skip removed line on same display row", m.cursor)
+	}
+}
+
 func TestDiffView_ToggleMode_ClampsScroll(t *testing.T) {
 	m := NewDiffViewModel()
 	m.SetSize(80, 3)

@@ -39,10 +39,16 @@ var (
 				Background(lipgloss.Color("124"))
 
 	splitHunkStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("6")).Bold(true)
+			Foreground(lipgloss.Color("117")).
+			Background(lipgloss.Color("236")).
+			Bold(true).
+			PaddingLeft(1)
 
 	splitLineNumStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("240"))
+
+	splitDividerStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("238"))
 )
 
 type displayRow struct {
@@ -340,7 +346,7 @@ func (m *DiffViewModel) buildSplitDisplayRows(threadsByLine map[int][]int) {
 		if dl.Type == diff.LineHunkHeader {
 			rowIdx := len(m.displayRows)
 			m.lineToFirstRow[i] = rowIdx
-			rendered := diff.RenderLine(dl, m.width, i == m.cursor)
+			rendered := m.renderSplitHunkRow(dl, i == m.cursor)
 			m.displayRows = append(m.displayRows, displayRow{
 				text:        m.fitRow(rendered),
 				diffLineIdx: i,
@@ -464,11 +470,23 @@ func (m *DiffViewModel) renderSplitRow(left, right *diff.DiffLine, highlighted b
 	rightWidth := max(1, m.width-leftWidth-3)
 	leftRendered := m.renderSplitCell(left, leftWidth, true)
 	rightRendered := m.renderSplitCell(right, rightWidth, false)
-	row := lipgloss.JoinHorizontal(lipgloss.Top, leftRendered, " | ", rightRendered)
+	row := lipgloss.JoinHorizontal(lipgloss.Top, leftRendered, splitDividerStyle.Render(" | "), rightRendered)
 	if highlighted {
 		row = lipgloss.NewStyle().Bold(true).Underline(true).Render(row)
 	}
 	return m.fitRow(row)
+}
+
+func (m *DiffViewModel) renderSplitHunkRow(dl diff.DiffLine, highlighted bool) string {
+	content := splitHunkStyle.Render(truncateDisplay(dl.Content, max(1, m.width-1)))
+	row := lipgloss.NewStyle().
+		Width(max(1, m.width)).
+		MaxWidth(max(1, m.width)).
+		Render(content)
+	if highlighted {
+		row = lipgloss.NewStyle().Bold(true).Underline(true).Render(row)
+	}
+	return row
 }
 
 func (m *DiffViewModel) renderSplitCell(dl *diff.DiffLine, width int, isLeft bool) string {
@@ -478,10 +496,6 @@ func (m *DiffViewModel) renderSplitCell(dl *diff.DiffLine, width int, isLeft boo
 	if dl == nil {
 		return lipgloss.NewStyle().Width(width).Render("")
 	}
-	if dl.Type == diff.LineHunkHeader {
-		return lipgloss.NewStyle().Width(width).Render(splitHunkStyle.Render(dl.Content))
-	}
-
 	var lineNum string
 	switch {
 	case isLeft:
@@ -496,18 +510,42 @@ func (m *DiffViewModel) renderSplitCell(dl *diff.DiffLine, width int, isLeft boo
 		lineNum = "    "
 	}
 
-	contentWidth := max(1, width-5)
-	content := truncateDisplay(dl.Content, contentWidth)
-	contentStyle := lipgloss.NewStyle()
+	marker := " "
 	switch dl.Type {
 	case diff.LineAdded:
-		contentStyle = splitAddedStyle
+		marker = "+"
 	case diff.LineRemoved:
-		contentStyle = splitRemovedStyle
+		marker = "-"
 	}
 
-	cell := splitLineNumStyle.Render(lineNum) + " " + contentStyle.Render(content)
-	return lipgloss.NewStyle().Width(width).MaxWidth(width).Render(cell)
+	contentWidth := max(1, width-8)
+	content := truncateDisplay(splitCellContent(dl), contentWidth)
+	cellStyle := lipgloss.NewStyle().Width(width).MaxWidth(width)
+	switch dl.Type {
+	case diff.LineAdded:
+		cellStyle = splitAddedStyle.Width(width).MaxWidth(width)
+	case diff.LineRemoved:
+		cellStyle = splitRemovedStyle.Width(width).MaxWidth(width)
+	}
+
+	cell := marker + " " + splitLineNumStyle.Render(lineNum) + " " + content
+	return cellStyle.Render(cell)
+}
+
+func splitCellContent(dl *diff.DiffLine) string {
+	if dl == nil {
+		return ""
+	}
+	if len(dl.Content) == 0 {
+		return ""
+	}
+	switch dl.Type {
+	case diff.LineAdded, diff.LineRemoved, diff.LineContext:
+		if prefix := dl.Content[0]; prefix == '+' || prefix == '-' || prefix == ' ' {
+			return dl.Content[1:]
+		}
+	}
+	return dl.Content
 }
 
 func (m *DiffViewModel) buildThreadLookup() map[int][]int {

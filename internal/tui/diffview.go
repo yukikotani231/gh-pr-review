@@ -373,14 +373,6 @@ func (m *DiffViewModel) buildSplitDisplayRows(threadsByLine map[int][]int) {
 				addedIdxs = append(addedIdxs, next)
 				next++
 			}
-			if len(removedIdxs) == 0 && dl.Type == diff.LineAdded {
-				addedIdxs = append(addedIdxs, i)
-				next = i + 1
-				for next < len(m.diffLines) && m.diffLines[next].Type == diff.LineAdded {
-					addedIdxs = append(addedIdxs, next)
-					next++
-				}
-			}
 			m.appendSplitChangeBlock(removedIdxs, addedIdxs, threadsByLine)
 			i = next - 1
 			continue
@@ -645,8 +637,8 @@ func (m *DiffViewModel) View() string {
 		return "(no diff available)"
 	}
 
-	// Rebuild display rows to reflect current cursor position
-	m.buildDisplayRows()
+	// Rebuild display rows to reflect current cursor position without accumulating rows.
+	m.rebuildDisplayRows()
 
 	var sb strings.Builder
 	end := m.scrollY + m.height

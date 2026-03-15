@@ -60,6 +60,7 @@ type ReviewComment struct {
 type ReviewThread struct {
 	ID         string          `json:"id"`
 	IsResolved bool            `json:"is_resolved"`
+	IsPending  bool            `json:"is_pending"`
 	Path       string          `json:"path"`
 	Line       int             `json:"line"`
 	DiffSide   DiffSide        `json:"diff_side"`

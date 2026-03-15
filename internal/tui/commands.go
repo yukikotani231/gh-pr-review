@@ -267,7 +267,17 @@ func (m *Model) findThreadAtCursor() *gh.ReviewThread {
 func (m Model) unresolvedThreadCount() int {
 	count := 0
 	for _, t := range m.threads {
-		if !t.IsResolved {
+		if !t.IsPending && !t.IsResolved {
+			count++
+		}
+	}
+	return count
+}
+
+func (m Model) pendingThreadCount() int {
+	count := 0
+	for _, t := range m.threads {
+		if t.IsPending {
 			count++
 		}
 	}

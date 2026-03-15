@@ -295,7 +295,99 @@ func (c *Client) FetchReviewThreads(number int) ([]ReviewThread, error) {
 		cursor = &endCursor
 	}
 
+	pendingThreads, err := c.fetchPendingReviewThreads(number)
+	if err != nil {
+		return nil, err
+	}
+	allThreads = append(allThreads, pendingThreads...)
+
 	return allThreads, nil
+}
+
+func (c *Client) fetchPendingReviewThreads(number int) ([]ReviewThread, error) {
+	variables := map[string]interface{}{
+		"owner":  c.owner,
+		"repo":   c.repo,
+		"number": number,
+	}
+
+	var resp struct {
+		Repository struct {
+			PullRequest struct {
+				Reviews struct {
+					Nodes []struct {
+						ID       string
+						Comments struct {
+							Nodes []struct {
+								ID        string
+								Body      string
+								Path      string
+								Line      int
+								DiffSide  string
+								CreatedAt string
+								Author    struct{ Login string }
+								ReplyTo   *struct{ ID string }
+							}
+						}
+					}
+				} `json:"reviews"`
+			}
+		}
+	}
+
+	if err := c.gql.Do(pendingReviewCommentsQuery, variables, &resp); err != nil {
+		return nil, fmt.Errorf("pending review コメントの取得に失敗: %w", err)
+	}
+
+	var pendingThreads []ReviewThread
+	threadIndexByRootComment := map[string]int{}
+
+	for _, review := range resp.Repository.PullRequest.Reviews.Nodes {
+		for _, comment := range review.Comments.Nodes {
+			if comment.Path == "" || comment.Line == 0 {
+				continue
+			}
+
+			if comment.ReplyTo == nil {
+				threadIndexByRootComment[comment.ID] = len(pendingThreads)
+				pendingThreads = append(pendingThreads, ReviewThread{
+					ID:        "pending-review:" + review.ID + ":" + comment.ID,
+					IsPending: true,
+					Path:      comment.Path,
+					Line:      comment.Line,
+					DiffSide:  DiffSide(comment.DiffSide),
+					Comments: []ReviewComment{{
+						ID:        comment.ID,
+						Body:      comment.Body,
+						Author:    comment.Author.Login,
+						CreatedAt: comment.CreatedAt,
+					}},
+				})
+				continue
+			}
+
+			threadIdx, ok := threadIndexByRootComment[comment.ReplyTo.ID]
+			if !ok {
+				threadIndexByRootComment[comment.ID] = len(pendingThreads)
+				pendingThreads = append(pendingThreads, ReviewThread{
+					ID:        "pending-review:" + review.ID + ":" + comment.ID,
+					IsPending: true,
+					Path:      comment.Path,
+					Line:      comment.Line,
+					DiffSide:  DiffSide(comment.DiffSide),
+				})
+				threadIdx = len(pendingThreads) - 1
+			}
+			pendingThreads[threadIdx].Comments = append(pendingThreads[threadIdx].Comments, ReviewComment{
+				ID:        comment.ID,
+				Body:      comment.Body,
+				Author:    comment.Author.Login,
+				CreatedAt: comment.CreatedAt,
+			})
+		}
+	}
+
+	return pendingThreads, nil
 }
 
 func (c *Client) AddComment(pullRequestID, path, body string, side DiffSide, line int) error {
@@ -306,6 +398,7 @@ func (c *Client) AddComment(pullRequestID, path, body string, side DiffSide, lin
 		c.fixture.Threads = append(c.fixture.Threads, ReviewThread{
 			ID:         threadID,
 			IsResolved: false,
+			IsPending:  true,
 			Path:       path,
 			Line:       line,
 			DiffSide:   side,
@@ -335,6 +428,7 @@ func (c *Client) ReplyToThread(threadID, body string) error {
 			if c.fixture.Threads[i].ID != threadID {
 				continue
 			}
+			c.fixture.Threads[i].IsPending = true
 			c.fixture.Threads[i].Comments = append(c.fixture.Threads[i].Comments, ReviewComment{
 				ID:        c.fixtureNextID("fixture-comment"),
 				Body:      body,

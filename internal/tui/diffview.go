@@ -302,33 +302,41 @@ func (m *DiffViewModel) moveCursorByDisplayRows(delta int) {
 	if len(m.diffLines) == 0 || delta == 0 {
 		return
 	}
-
-	next := m.cursor + delta
-	if next < 0 {
-		next = 0
-	} else if next >= len(m.diffLines) {
-		next = len(m.diffLines) - 1
+	currentRow, ok := m.lineToFirstRow[m.cursor]
+	if !ok {
+		m.cursor = max(0, min(m.cursor+delta, len(m.diffLines)-1))
+		m.ensureVisible()
+		return
 	}
 
-	currentRow, hasCurrentRow := m.lineToFirstRow[m.cursor]
-	for next > 0 && next < len(m.diffLines)-1 {
-		nextRow, ok := m.lineToFirstRow[next]
-		if !ok {
-			break
+	targetIdx := m.cursor
+	if delta > 0 {
+		nextRow := currentRow
+		for i := 0; i < len(m.diffLines); i++ {
+			row, ok := m.lineToFirstRow[i]
+			if !ok || row <= currentRow {
+				continue
+			}
+			if nextRow == currentRow || row < nextRow {
+				nextRow = row
+				targetIdx = i
+			}
 		}
-		if !hasCurrentRow || nextRow != currentRow {
-			break
+	} else {
+		prevRow := -1
+		for i := 0; i < len(m.diffLines); i++ {
+			row, ok := m.lineToFirstRow[i]
+			if !ok || row >= currentRow {
+				continue
+			}
+			if row > prevRow {
+				prevRow = row
+				targetIdx = i
+			}
 		}
-		next += delta
 	}
 
-	if next < 0 {
-		next = 0
-	} else if next >= len(m.diffLines) {
-		next = len(m.diffLines) - 1
-	}
-
-	m.cursor = next
+	m.cursor = targetIdx
 	m.ensureVisible()
 }
 

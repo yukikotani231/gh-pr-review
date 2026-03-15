@@ -821,3 +821,92 @@ func TestDiffView_ViewDoesNotAccumulateRowsAcrossRenders(t *testing.T) {
 		t.Fatalf("second render duplicated trailing line: %q", second)
 	}
 }
+
+func TestDiffView_DisplayRowInvariants_Unified(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(testDiffLines(), testThreads())
+
+	assertDisplayRowInvariants(t, &m)
+}
+
+func TestDiffView_DisplayRowInvariants_Split(t *testing.T) {
+	fixturePath := filepath.Join("..", "..", "testdata", "fixtures", "wide-split.json")
+	fixture, err := gh.LoadFixtureData(fixturePath)
+	if err != nil {
+		t.Fatalf("LoadFixtureData: %v", err)
+	}
+
+	lines := diff.Parse(fixture.DiffResult.Patches["internal/tui/split_layout.go"])
+	m := NewDiffViewModel()
+	m.SetSize(120, 40)
+	m.SetContent(lines, nil)
+	m.SetMode("split")
+
+	assertDisplayRowInvariants(t, &m)
+}
+
+func TestDiffView_SplitNavigationVisitsEachSharedRowOnce(t *testing.T) {
+	fixturePath := filepath.Join("..", "..", "testdata", "fixtures", "wide-split.json")
+	fixture, err := gh.LoadFixtureData(fixturePath)
+	if err != nil {
+		t.Fatalf("LoadFixtureData: %v", err)
+	}
+
+	lines := diff.Parse(fixture.DiffResult.Patches["internal/tui/split_layout.go"])
+	m := NewDiffViewModel()
+	m.SetSize(120, 40)
+	m.SetContent(lines, nil)
+	m.SetMode("split")
+
+	visited := map[int]int{}
+	for {
+		row := m.lineToFirstRow[m.cursor]
+		visited[row]++
+		if m.cursor == len(m.diffLines)-1 {
+			break
+		}
+		prev := m.cursor
+		m.MoveDown()
+		if m.cursor == prev {
+			t.Fatalf("cursor got stuck at %d", m.cursor)
+		}
+	}
+
+	for row, count := range visited {
+		if count > 1 {
+			t.Fatalf("display row %d visited %d times during linear navigation", row, count)
+		}
+	}
+}
+
+func assertDisplayRowInvariants(t *testing.T, m *DiffViewModel) {
+	t.Helper()
+
+	m.buildDisplayRows()
+
+	if len(m.lineToFirstRow) != len(m.diffLines) {
+		t.Fatalf("lineToFirstRow len = %d, want %d", len(m.lineToFirstRow), len(m.diffLines))
+	}
+
+	for i := range m.diffLines {
+		row, ok := m.lineToFirstRow[i]
+		if !ok {
+			t.Fatalf("missing lineToFirstRow entry for diff line %d", i)
+		}
+		if row < 0 || row >= len(m.displayRows) {
+			t.Fatalf("lineToFirstRow[%d] = %d out of range", i, row)
+		}
+	}
+
+	beforeRows := len(m.displayRows)
+	m.rebuildDisplayRows()
+	afterRows := len(m.displayRows)
+	if afterRows != beforeRows {
+		t.Fatalf("displayRows len changed across rebuild: %d -> %d", beforeRows, afterRows)
+	}
+
+	if m.cursor < 0 || m.cursor >= len(m.diffLines) {
+		t.Fatalf("cursor = %d out of range", m.cursor)
+	}
+}

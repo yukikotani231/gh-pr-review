@@ -34,6 +34,7 @@ var (
 			Background(lipgloss.Color("124"))
 	hunkStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Bold(true)
 	lineNumStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	cursorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("229")).Bold(true)
 )
 
 func Parse(patch string) []DiffLine {
@@ -128,6 +129,11 @@ func RenderLine(dl DiffLine, width int, highlighted bool) string {
 		width = 1
 	}
 
+	cursorPrefix := "  "
+	if highlighted {
+		cursorPrefix = cursorStyle.Render("> ")
+	}
+
 	// Line numbers
 	var oldNum, newNum string
 	if dl.OldLineNum > 0 {
@@ -150,7 +156,7 @@ func RenderLine(dl DiffLine, width int, highlighted bool) string {
 
 	content := dl.Content
 	// Truncate if too wide
-	maxContent := width - 12
+	maxContent := width - 14
 	if maxContent < 1 {
 		maxContent = 1
 	}
@@ -168,14 +174,7 @@ func RenderLine(dl DiffLine, width int, highlighted bool) string {
 		line = prefix + content
 	}
 
-	if highlighted {
-		line = lipgloss.NewStyle().
-			Bold(true).
-			Underline(true).
-			Render(line)
-	}
-
-	return lipgloss.NewStyle().MaxWidth(width).Render(line)
+	return lipgloss.NewStyle().MaxWidth(width).Render(cursorPrefix + line)
 }
 
 func truncateDisplay(s string, maxWidth int) string {

@@ -49,6 +49,10 @@ var (
 
 	splitDividerStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("238"))
+
+	splitCursorStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("229")).
+				Bold(true)
 )
 
 type displayRow struct {
@@ -370,14 +374,6 @@ func (m *DiffViewModel) buildSplitDisplayRows(threadsByLine map[int][]int) {
 				addedIdxs = append(addedIdxs, next)
 				next++
 			}
-			if len(removedIdxs) == 0 && dl.Type == diff.LineAdded {
-				addedIdxs = append(addedIdxs, i)
-				next = i + 1
-				for next < len(m.diffLines) && m.diffLines[next].Type == diff.LineAdded {
-					addedIdxs = append(addedIdxs, next)
-					next++
-				}
-			}
 			m.appendSplitChangeBlock(removedIdxs, addedIdxs, threadsByLine)
 			i = next - 1
 			continue
@@ -466,27 +462,30 @@ func orderedThreadIndexes(left, right []int) []int {
 }
 
 func (m *DiffViewModel) renderSplitRow(left, right *diff.DiffLine, highlighted bool) string {
-	leftWidth := max(1, (m.width-3)/2)
-	rightWidth := max(1, m.width-leftWidth-3)
+	cursorPrefix := "  "
+	if highlighted {
+		cursorPrefix = splitCursorStyle.Render("> ")
+	}
+	availableWidth := max(1, m.width-2)
+	leftWidth := max(1, (availableWidth-3)/2)
+	rightWidth := max(1, availableWidth-leftWidth-3)
 	leftRendered := m.renderSplitCell(left, leftWidth, true)
 	rightRendered := m.renderSplitCell(right, rightWidth, false)
 	row := lipgloss.JoinHorizontal(lipgloss.Top, leftRendered, splitDividerStyle.Render(" | "), rightRendered)
-	if highlighted {
-		row = lipgloss.NewStyle().Bold(true).Underline(true).Render(row)
-	}
-	return m.fitRow(row)
+	return m.fitRow(cursorPrefix + row)
 }
 
 func (m *DiffViewModel) renderSplitHunkRow(dl diff.DiffLine, highlighted bool) string {
+	cursorPrefix := "  "
+	if highlighted {
+		cursorPrefix = splitCursorStyle.Render("> ")
+	}
 	content := splitHunkStyle.Render(truncateDisplay(dl.Content, max(1, m.width-1)))
 	row := lipgloss.NewStyle().
-		Width(max(1, m.width)).
-		MaxWidth(max(1, m.width)).
+		Width(max(1, m.width-2)).
+		MaxWidth(max(1, m.width-2)).
 		Render(content)
-	if highlighted {
-		row = lipgloss.NewStyle().Bold(true).Underline(true).Render(row)
-	}
-	return row
+	return cursorPrefix + row
 }
 
 func (m *DiffViewModel) renderSplitCell(dl *diff.DiffLine, width int, isLeft bool) string {
@@ -642,8 +641,8 @@ func (m *DiffViewModel) View() string {
 		return "(no diff available)"
 	}
 
-	// Rebuild display rows to reflect current cursor position
-	m.buildDisplayRows()
+	// Rebuild display rows to reflect current cursor position without accumulating rows.
+	m.rebuildDisplayRows()
 
 	var sb strings.Builder
 	end := m.scrollY + m.height

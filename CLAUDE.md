@@ -28,6 +28,10 @@ golangci-lint run ./...
 # Run the hook manually
 ./.githooks/pre-commit
 
+# Run local code with fixture data for TUI checks
+go run . --fixture basic
+COLUMNS=140 go run . --fixture wide-split
+
 # Vet
 go vet ./...
 
@@ -76,3 +80,11 @@ This is a GitHub CLI extension (`gh pr-review <PR number>`) built with Go and th
 
 - ブランチ保護ルールにより、未解決のレビュースレッドがあるとマージできない
 - マージ前に `~/scripts/pr_review_threads.sh list <PR番号> yukikotani231/gh-pr-review` で未解決スレッドを確認し、対応済みのものは resolve すること
+
+## TUI 変更時の開発フロー
+
+- TUI 変更では `go test ./...`、`go vet ./...`、`go build ./...` を必ず実行する
+- 目視確認は `gh pr-review --fixture ...` ではなく `go run . --fixture ...` を使う
+  - `gh pr-review` はインストール済み extension を実行するため、ローカル未反映の変更を見落とす
+- 少なくとも `basic` と、変更内容に対応する fixture を起動する
+- split diff 系の変更では `wide-split` を使って確認する

@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -690,5 +691,83 @@ func TestDiffView_ThreadRows_NoWrapOverflow(t *testing.T) {
 		if w := lipgloss.Width(row.text); w > m.width {
 			t.Fatalf("row %d width overflow: got %d > %d, row=%q", i, w, m.width, row.text)
 		}
+	}
+}
+
+func TestDiffView_WideSplitFixtureDoesNotDuplicateUnchangedReplacementLine(t *testing.T) {
+	fixturePath := filepath.Join("..", "..", "testdata", "fixtures", "wide-split.json")
+	fixture, err := gh.LoadFixtureData(fixturePath)
+	if err != nil {
+		t.Fatalf("LoadFixtureData: %v", err)
+	}
+
+	patch := fixture.DiffResult.Patches["internal/tui/split_layout.go"]
+	lines := diff.Parse(patch)
+
+	m := NewDiffViewModel()
+	m.SetSize(120, 40)
+	m.SetContent(lines, nil)
+	m.SetMode("split")
+	m.buildDisplayRows()
+
+	count := 0
+	for _, row := range m.displayRows {
+		if strings.Contains(row.text, "return renderUnified(width)") {
+			count++
+		}
+	}
+
+	if count != 1 {
+		t.Fatalf("renderUnified line count = %d, want 1", count)
+	}
+}
+
+func TestDiffView_SplitDoesNotDuplicateAddedOnlyBlock(t *testing.T) {
+	lines := diff.Parse(`@@ -1,1 +1,3 @@
++first added
++second added
+ line`)
+
+	m := NewDiffViewModel()
+	m.SetSize(120, 20)
+	m.SetContent(lines, nil)
+	m.SetMode("split")
+	m.buildDisplayRows()
+
+	count := 0
+	for _, row := range m.displayRows {
+		if strings.Contains(row.text, "first added") {
+			count++
+		}
+	}
+
+	if count != 1 {
+		t.Fatalf("first added row count = %d, want 1", count)
+	}
+}
+
+func TestDiffView_ViewDoesNotAccumulateRowsAcrossRenders(t *testing.T) {
+	fixturePath := filepath.Join("..", "..", "testdata", "fixtures", "wide-split.json")
+	fixture, err := gh.LoadFixtureData(fixturePath)
+	if err != nil {
+		t.Fatalf("LoadFixtureData: %v", err)
+	}
+
+	patch := fixture.DiffResult.Patches["internal/tui/split_layout.go"]
+	lines := diff.Parse(patch)
+
+	m := NewDiffViewModel()
+	m.SetSize(120, 40)
+	m.SetContent(lines, nil)
+	m.SetMode("split")
+
+	first := m.View()
+	second := m.View()
+
+	if strings.Count(first, "keep an extra trailing line") != 1 {
+		t.Fatalf("first render duplicated trailing line: %q", first)
+	}
+	if strings.Count(second, "keep an extra trailing line") != 1 {
+		t.Fatalf("second render duplicated trailing line: %q", second)
 	}
 }

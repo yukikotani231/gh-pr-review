@@ -485,6 +485,58 @@ func TestDiffView_SplitAlignsMultipleRemovedAndAddedRows(t *testing.T) {
 	}
 }
 
+func TestDiffView_SplitMoveDownSkipsSharedDisplayRow(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(testDiffLines(), nil)
+	m.ToggleMode()
+
+	m.cursor = 2 // removed line
+	m.MoveDown()
+	if m.cursor != 4 {
+		t.Fatalf("cursor = %d, want 4 to skip added line on same display row", m.cursor)
+	}
+}
+
+func TestDiffView_SplitMoveUpSkipsSharedDisplayRow(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(testDiffLines(), nil)
+	m.ToggleMode()
+
+	m.cursor = 3 // added line
+	m.MoveUp()
+	if m.cursor != 1 {
+		t.Fatalf("cursor = %d, want 1 to skip removed line on same display row", m.cursor)
+	}
+}
+
+func TestDiffView_SplitMoveDownSkipsMultiLineSharedRows(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(testDiffLinesMultipleChanges(), nil)
+	m.ToggleMode()
+
+	m.cursor = 3 // second removed line
+	m.MoveDown()
+	if m.cursor != 6 {
+		t.Fatalf("cursor = %d, want 6 to move to next visual row after shared block", m.cursor)
+	}
+}
+
+func TestDiffView_SplitMoveUpSkipsMultiLineSharedRows(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(testDiffLinesMultipleChanges(), nil)
+	m.ToggleMode()
+
+	m.cursor = 4 // first added line
+	m.MoveUp()
+	if m.cursor != 1 {
+		t.Fatalf("cursor = %d, want 1 to move to previous visual row before shared block", m.cursor)
+	}
+}
+
 func TestDiffView_ToggleMode_ClampsScroll(t *testing.T) {
 	m := NewDiffViewModel()
 	m.SetSize(80, 3)
@@ -793,5 +845,94 @@ func TestDiffView_ViewDoesNotAccumulateRowsAcrossRenders(t *testing.T) {
 	}
 	if strings.Count(second, "keep an extra trailing line") != 1 {
 		t.Fatalf("second render duplicated trailing line: %q", second)
+	}
+}
+
+func TestDiffView_DisplayRowInvariants_Unified(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(testDiffLines(), testThreads())
+
+	assertDisplayRowInvariants(t, &m)
+}
+
+func TestDiffView_DisplayRowInvariants_Split(t *testing.T) {
+	fixturePath := filepath.Join("..", "..", "testdata", "fixtures", "wide-split.json")
+	fixture, err := gh.LoadFixtureData(fixturePath)
+	if err != nil {
+		t.Fatalf("LoadFixtureData: %v", err)
+	}
+
+	lines := diff.Parse(fixture.DiffResult.Patches["internal/tui/split_layout.go"])
+	m := NewDiffViewModel()
+	m.SetSize(120, 40)
+	m.SetContent(lines, nil)
+	m.SetMode("split")
+
+	assertDisplayRowInvariants(t, &m)
+}
+
+func TestDiffView_SplitNavigationVisitsEachSharedRowOnce(t *testing.T) {
+	fixturePath := filepath.Join("..", "..", "testdata", "fixtures", "wide-split.json")
+	fixture, err := gh.LoadFixtureData(fixturePath)
+	if err != nil {
+		t.Fatalf("LoadFixtureData: %v", err)
+	}
+
+	lines := diff.Parse(fixture.DiffResult.Patches["internal/tui/split_layout.go"])
+	m := NewDiffViewModel()
+	m.SetSize(120, 40)
+	m.SetContent(lines, nil)
+	m.SetMode("split")
+
+	visited := map[int]int{}
+	for {
+		row := m.lineToFirstRow[m.cursor]
+		visited[row]++
+		if m.cursor == len(m.diffLines)-1 {
+			break
+		}
+		prev := m.cursor
+		m.MoveDown()
+		if m.cursor == prev {
+			t.Fatalf("cursor got stuck at %d", m.cursor)
+		}
+	}
+
+	for row, count := range visited {
+		if count > 1 {
+			t.Fatalf("display row %d visited %d times during linear navigation", row, count)
+		}
+	}
+}
+
+func assertDisplayRowInvariants(t *testing.T, m *DiffViewModel) {
+	t.Helper()
+
+	m.buildDisplayRows()
+
+	if len(m.lineToFirstRow) != len(m.diffLines) {
+		t.Fatalf("lineToFirstRow len = %d, want %d", len(m.lineToFirstRow), len(m.diffLines))
+	}
+
+	for i := range m.diffLines {
+		row, ok := m.lineToFirstRow[i]
+		if !ok {
+			t.Fatalf("missing lineToFirstRow entry for diff line %d", i)
+		}
+		if row < 0 || row >= len(m.displayRows) {
+			t.Fatalf("lineToFirstRow[%d] = %d out of range", i, row)
+		}
+	}
+
+	beforeRows := len(m.displayRows)
+	m.rebuildDisplayRows()
+	afterRows := len(m.displayRows)
+	if afterRows != beforeRows {
+		t.Fatalf("displayRows len changed across rebuild: %d -> %d", beforeRows, afterRows)
+	}
+
+	if m.cursor < 0 || m.cursor >= len(m.diffLines) {
+		t.Fatalf("cursor = %d out of range", m.cursor)
 	}
 }

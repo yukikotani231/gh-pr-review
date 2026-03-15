@@ -1091,6 +1091,11 @@ func TestGraphQLQueryStrings_ContainExpectedFields(t *testing.T) {
 			[]string{"reviewThreads", "isResolved", "diffSide", "comments"},
 		},
 		{
+			"pendingReviewCommentsQuery",
+			pendingReviewCommentsQuery,
+			[]string{"reviews", "PENDING", "comments", "replyTo", "diffSide", "path", "line"},
+		},
+		{
 			"markFileAsViewedMutation",
 			markFileAsViewedMutation,
 			[]string{"markFileAsViewed", "pullRequestId", "path"},

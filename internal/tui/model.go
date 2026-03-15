@@ -392,6 +392,10 @@ func (m *Model) handleRightPaneKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.statusMsg = "No thread to reply to. Use 'n' to navigate to a thread."
 			return m, nil
 		}
+		if t.IsPending {
+			m.statusMsg = "Pending review threads cannot be replied to here"
+			return m, nil
+		}
 		m.mode = modeReply
 		m.replyThreadID = t.ID
 		m.textInput.Reset()

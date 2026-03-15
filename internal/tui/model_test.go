@@ -53,3 +53,35 @@ func TestModel_HandleRightPaneKey_ResolvePendingThreadShowsStatus(t *testing.T) 
 		t.Fatalf("statusMsg = %q", m.statusMsg)
 	}
 }
+
+func TestModel_HandleRightPaneKey_ReplyPendingThreadShowsStatus(t *testing.T) {
+	m := NewModel(nil, 1)
+	m.state = stateReady
+	m.focus = rightPane
+	m.threads = []gh.ReviewThread{
+		{
+			ID:        "pending-1",
+			IsPending: true,
+			Path:      "main.go",
+			Line:      1,
+			DiffSide:  gh.DiffSideRight,
+			Comments: []gh.ReviewComment{
+				{ID: "c1", Body: "pending", Author: "alice", CreatedAt: "2026-01-01T00:00:00Z"},
+			},
+		},
+	}
+	m.diffView.SetSize(80, 20)
+	m.diffView.SetContent([]diff.DiffLine{
+		{Type: diff.LineHunkHeader, Content: "@@ -1 +1 @@"},
+		{Type: diff.LineAdded, Content: "+line", NewLineNum: 1},
+	}, m.threads)
+	m.diffView.threadCursor = 0
+
+	_, cmd := m.handleRightPaneKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	if cmd != nil {
+		t.Fatal("expected no reply command for pending thread")
+	}
+	if m.statusMsg != "Pending review threads cannot be replied to here" {
+		t.Fatalf("statusMsg = %q", m.statusMsg)
+	}
+}

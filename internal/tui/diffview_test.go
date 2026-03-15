@@ -359,8 +359,11 @@ func TestDiffView_ToggleMode_Split(t *testing.T) {
 	if !strings.Contains(view, "old line2") || !strings.Contains(view, "new line2") {
 		t.Fatalf("split view should contain both sides of changed line, got %q", view)
 	}
-	if !strings.Contains(view, "-") || !strings.Contains(view, "+") {
-		t.Fatalf("split view should show explicit change markers, got %q", view)
+	if !strings.Contains(view, "-    2 old line2") {
+		t.Fatalf("split view should show removed marker column, got %q", view)
+	}
+	if !strings.Contains(view, "+    2 new line2") {
+		t.Fatalf("split view should show added marker column, got %q", view)
 	}
 	if strings.Contains(view, "-old line2") || strings.Contains(view, "+new line2") {
 		t.Fatalf("split view should drop inline diff prefixes inside cells, got %q", view)

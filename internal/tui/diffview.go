@@ -518,7 +518,7 @@ func (m *DiffViewModel) renderSplitCell(dl *diff.DiffLine, width int, isLeft boo
 		marker = "-"
 	}
 
-	contentWidth := max(1, width-8)
+	contentWidth := max(1, width-7)
 	content := truncateDisplay(splitCellContent(dl), contentWidth)
 	cellStyle := lipgloss.NewStyle().Width(width).MaxWidth(width)
 	switch dl.Type {

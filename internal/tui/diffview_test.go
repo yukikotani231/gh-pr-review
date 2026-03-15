@@ -379,7 +379,7 @@ func TestDiffView_SetMode(t *testing.T) {
 
 func TestDiffView_SplitFallbackOnNarrowWidth(t *testing.T) {
 	m := NewDiffViewModel()
-	m.SetSize(40, 20)
+	m.SetSize(32, 20)
 	m.SetContent(testDiffLines(), nil)
 
 	m.ToggleMode()
@@ -392,6 +392,21 @@ func TestDiffView_SplitFallbackOnNarrowWidth(t *testing.T) {
 	}
 	if got := m.ModeLabel(); got != "[split->unified]" {
 		t.Fatalf("ModeLabel() = %q, want fallback label", got)
+	}
+}
+
+func TestDiffView_SplitBecomesAvailableAtReducedThreshold(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(minSplitDiffWidth, 20)
+	m.SetContent(testDiffLines(), nil)
+
+	m.ToggleMode()
+
+	if !m.CanRenderSplit() {
+		t.Fatalf("expected split to be available at width %d", minSplitDiffWidth)
+	}
+	if got := m.ModeLabel(); got != "[split]" {
+		t.Fatalf("ModeLabel() = %q, want [split]", got)
 	}
 }
 

@@ -31,10 +31,12 @@ var (
 				Background(lipgloss.Color("236"))
 
 	splitAddedStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("2"))
+			Foreground(lipgloss.Color("255")).
+			Background(lipgloss.Color("28"))
 
 	splitRemovedStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("1"))
+				Foreground(lipgloss.Color("255")).
+				Background(lipgloss.Color("124"))
 
 	splitHunkStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("6")).Bold(true)
@@ -56,7 +58,7 @@ const (
 	diffModeSplit
 )
 
-const minSplitDiffWidth = 60
+const minSplitDiffWidth = 40
 const splitTooNarrowMsg = "Split diff requires a wider pane"
 
 type DiffViewModel struct {
@@ -464,7 +466,7 @@ func (m *DiffViewModel) renderSplitRow(left, right *diff.DiffLine, highlighted b
 	rightRendered := m.renderSplitCell(right, rightWidth, false)
 	row := lipgloss.JoinHorizontal(lipgloss.Top, leftRendered, " | ", rightRendered)
 	if highlighted {
-		row = lipgloss.NewStyle().Background(lipgloss.Color("237")).Render(row)
+		row = lipgloss.NewStyle().Bold(true).Underline(true).Render(row)
 	}
 	return m.fitRow(row)
 }

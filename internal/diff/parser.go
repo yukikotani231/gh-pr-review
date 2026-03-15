@@ -26,8 +26,12 @@ type DiffLine struct {
 }
 
 var (
-	addedStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
-	removedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
+	addedStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("255")).
+			Background(lipgloss.Color("28"))
+	removedStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("255")).
+			Background(lipgloss.Color("124"))
 	hunkStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Bold(true)
 	lineNumStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 )
@@ -166,7 +170,8 @@ func RenderLine(dl DiffLine, width int, highlighted bool) string {
 
 	if highlighted {
 		line = lipgloss.NewStyle().
-			Background(lipgloss.Color("237")).
+			Bold(true).
+			Underline(true).
 			Render(line)
 	}
 

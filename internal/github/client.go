@@ -2,6 +2,7 @@ package github
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/cli/go-gh/v2/pkg/api"
 )
@@ -188,7 +189,7 @@ func (c *Client) FetchDiffs(number int) (*DiffResult, error) {
 
 func (c *Client) MarkFileAsViewed(pullRequestID, path string) error {
 	if c.fixture != nil {
-		return fmt.Errorf("fixture mode is read-only")
+		return c.fixtureSetViewedState(path, ViewedStateViewed)
 	}
 	variables := map[string]interface{}{
 		"pullRequestId": pullRequestID,
@@ -200,7 +201,7 @@ func (c *Client) MarkFileAsViewed(pullRequestID, path string) error {
 
 func (c *Client) UnmarkFileAsViewed(pullRequestID, path string) error {
 	if c.fixture != nil {
-		return fmt.Errorf("fixture mode is read-only")
+		return c.fixtureSetViewedState(path, ViewedStateUnviewed)
 	}
 	variables := map[string]interface{}{
 		"pullRequestId": pullRequestID,
@@ -299,7 +300,23 @@ func (c *Client) FetchReviewThreads(number int) ([]ReviewThread, error) {
 
 func (c *Client) AddComment(pullRequestID, path, body string, side DiffSide, line int) error {
 	if c.fixture != nil {
-		return fmt.Errorf("fixture mode is read-only")
+		now := time.Now().UTC().Format(time.RFC3339)
+		threadID := c.fixtureNextID("fixture-thread")
+		commentID := c.fixtureNextID("fixture-comment")
+		c.fixture.Threads = append(c.fixture.Threads, ReviewThread{
+			ID:         threadID,
+			IsResolved: false,
+			Path:       path,
+			Line:       line,
+			DiffSide:   side,
+			Comments: []ReviewComment{{
+				ID:        commentID,
+				Body:      body,
+				Author:    "you",
+				CreatedAt: now,
+			}},
+		})
+		return nil
 	}
 	variables := map[string]interface{}{
 		"pullRequestId": pullRequestID,
@@ -314,7 +331,19 @@ func (c *Client) AddComment(pullRequestID, path, body string, side DiffSide, lin
 
 func (c *Client) ReplyToThread(threadID, body string) error {
 	if c.fixture != nil {
-		return fmt.Errorf("fixture mode is read-only")
+		for i := range c.fixture.Threads {
+			if c.fixture.Threads[i].ID != threadID {
+				continue
+			}
+			c.fixture.Threads[i].Comments = append(c.fixture.Threads[i].Comments, ReviewComment{
+				ID:        c.fixtureNextID("fixture-comment"),
+				Body:      body,
+				Author:    "you",
+				CreatedAt: time.Now().UTC().Format(time.RFC3339),
+			})
+			return nil
+		}
+		return fmt.Errorf("fixture thread not found: %s", threadID)
 	}
 	variables := map[string]interface{}{
 		"threadId": threadID,
@@ -326,7 +355,7 @@ func (c *Client) ReplyToThread(threadID, body string) error {
 
 func (c *Client) ResolveThread(threadID string) error {
 	if c.fixture != nil {
-		return fmt.Errorf("fixture mode is read-only")
+		return c.fixtureSetThreadResolved(threadID, true)
 	}
 	variables := map[string]interface{}{
 		"threadId": threadID,
@@ -337,7 +366,7 @@ func (c *Client) ResolveThread(threadID string) error {
 
 func (c *Client) UnresolveThread(threadID string) error {
 	if c.fixture != nil {
-		return fmt.Errorf("fixture mode is read-only")
+		return c.fixtureSetThreadResolved(threadID, false)
 	}
 	variables := map[string]interface{}{
 		"threadId": threadID,

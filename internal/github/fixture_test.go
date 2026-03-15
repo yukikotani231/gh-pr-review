@@ -124,3 +124,72 @@ func TestFixtureClientIsReadOnly(t *testing.T) {
 		t.Fatalf("SubmitReview error = %v, want read-only error", err)
 	}
 }
+
+func TestFixtureClientMutatesFixtureStateLocally(t *testing.T) {
+	fixture := &FixtureData{
+		Owner: "demo",
+		Repo:  "sample",
+		PullRequest: PullRequest{
+			ID:     "PR_fixture",
+			Title:  "Fixture PR",
+			Number: 42,
+			Files: []PRFile{
+				{Path: "main.go", ViewerViewedState: ViewedStateUnviewed},
+			},
+		},
+		DiffResult: DiffResult{
+			Patches:           map[string]string{"main.go": "@@ -1 +1 @@\n-old\n+new"},
+			FileStatuses:      map[string]FileStatus{"main.go": FileStatusModified},
+			PreviousFilenames: map[string]string{},
+		},
+		Threads: []ReviewThread{
+			{
+				ID:         "thread-1",
+				Path:       "main.go",
+				Line:       1,
+				DiffSide:   DiffSideRight,
+				IsResolved: false,
+				Comments: []ReviewComment{
+					{ID: "comment-1", Body: "existing", Author: "alice", CreatedAt: "2026-03-15T00:00:00Z"},
+				},
+			},
+		},
+	}
+
+	client := NewFixtureClient(fixture)
+
+	if err := client.MarkFileAsViewed("PR_fixture", "main.go"); err != nil {
+		t.Fatalf("MarkFileAsViewed: %v", err)
+	}
+	if fixture.PullRequest.Files[0].ViewerViewedState != ViewedStateViewed {
+		t.Fatalf("ViewerViewedState = %q, want VIEWED", fixture.PullRequest.Files[0].ViewerViewedState)
+	}
+
+	if err := client.AddComment("PR_fixture", "main.go", "new top-level comment", DiffSideRight, 2); err != nil {
+		t.Fatalf("AddComment: %v", err)
+	}
+	if len(fixture.Threads) != 2 {
+		t.Fatalf("len(Threads) = %d, want 2", len(fixture.Threads))
+	}
+
+	if err := client.ReplyToThread("thread-1", "reply body"); err != nil {
+		t.Fatalf("ReplyToThread: %v", err)
+	}
+	if got := fixture.Threads[0].Comments[len(fixture.Threads[0].Comments)-1].Body; got != "reply body" {
+		t.Fatalf("reply body = %q, want reply body", got)
+	}
+
+	if err := client.ResolveThread("thread-1"); err != nil {
+		t.Fatalf("ResolveThread: %v", err)
+	}
+	if !fixture.Threads[0].IsResolved {
+		t.Fatal("expected thread-1 to be resolved")
+	}
+
+	if err := client.UnresolveThread("thread-1"); err != nil {
+		t.Fatalf("UnresolveThread: %v", err)
+	}
+	if fixture.Threads[0].IsResolved {
+		t.Fatal("expected thread-1 to be unresolved")
+	}
+}

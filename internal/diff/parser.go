@@ -34,6 +34,7 @@ var (
 			Background(lipgloss.Color("124"))
 	hunkStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Bold(true)
 	lineNumStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	cursorStyle  = lipgloss.NewStyle().Background(lipgloss.Color("236"))
 )
 
 func Parse(patch string) []DiffLine {
@@ -169,10 +170,7 @@ func RenderLine(dl DiffLine, width int, highlighted bool) string {
 	}
 
 	if highlighted {
-		line = lipgloss.NewStyle().
-			Bold(true).
-			Underline(true).
-			Render(line)
+		line = cursorStyle.Render(line)
 	}
 
 	return lipgloss.NewStyle().MaxWidth(width).Render(line)

@@ -49,6 +49,9 @@ var (
 
 	splitDividerStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("238"))
+
+	splitCursorStyle = lipgloss.NewStyle().
+				Background(lipgloss.Color("236"))
 )
 
 type displayRow struct {
@@ -472,7 +475,7 @@ func (m *DiffViewModel) renderSplitRow(left, right *diff.DiffLine, highlighted b
 	rightRendered := m.renderSplitCell(right, rightWidth, false)
 	row := lipgloss.JoinHorizontal(lipgloss.Top, leftRendered, splitDividerStyle.Render(" | "), rightRendered)
 	if highlighted {
-		row = lipgloss.NewStyle().Bold(true).Underline(true).Render(row)
+		row = splitCursorStyle.Render(row)
 	}
 	return m.fitRow(row)
 }
@@ -484,7 +487,7 @@ func (m *DiffViewModel) renderSplitHunkRow(dl diff.DiffLine, highlighted bool) s
 		MaxWidth(max(1, m.width)).
 		Render(content)
 	if highlighted {
-		row = lipgloss.NewStyle().Bold(true).Underline(true).Render(row)
+		row = splitCursorStyle.Render(row)
 	}
 	return row
 }

@@ -35,9 +35,9 @@ gh pr-review --fixture basic
 For manual TUI checks without preparing a real GitHub PR, use fixture mode:
 
 ```bash
-gh pr-review --fixture basic
-COLUMNS=100 gh pr-review --fixture basic
-gh pr-review --fixture ./testdata/fixtures/basic.json
+go run . --fixture basic
+COLUMNS=100 go run . --fixture basic
+go run . --fixture ./testdata/fixtures/basic.json
 ```
 
 Built-in fixtures live under [`testdata/fixtures`](./testdata/fixtures).
@@ -45,13 +45,15 @@ Built-in fixtures live under [`testdata/fixtures`](./testdata/fixtures).
 Suggested fixtures:
 
 ```bash
-gh pr-review --fixture basic
-gh pr-review --fixture rename-heavy
-gh pr-review --fixture thread-heavy
-COLUMNS=140 gh pr-review --fixture wide-split
+go run . --fixture basic
+go run . --fixture rename-heavy
+go run . --fixture thread-heavy
+COLUMNS=140 go run . --fixture wide-split
 ```
 
 The diff view mode is also persisted across launches. If you switch to split view with `s`, the next start will reuse that mode.
+
+Use `go run . --fixture ...` while developing. `gh pr-review ...` runs the installed extension, so it may not reflect local uncommitted changes.
 
 ## Key Bindings
 
@@ -125,6 +127,24 @@ gh extension install .
 # Uninstall
 gh extension remove pr-review
 ```
+
+### TUI Change Checklist
+
+When changing the TUI, always do both:
+
+```bash
+# Automated checks
+go test ./...
+go vet ./...
+go build ./...
+
+# Manual UI checks against local code
+go run . --fixture basic
+go run . --fixture thread-heavy
+COLUMNS=140 go run . --fixture wide-split
+```
+
+If the change is specific to a fixture scenario, run that fixture as well.
 
 ## License
 

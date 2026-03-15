@@ -27,7 +27,7 @@ func TestLoadFixtureData(t *testing.T) {
 			"file_statuses": {"main.go": "modified"},
 			"previous_filenames": {}
 		},
-		"threads": [{"id":"T1","is_resolved":true,"path":"main.go","line":1,"diff_side":"RIGHT","comments":[]}]
+		"threads": [{"id":"T1","is_resolved":true,"is_pending":true,"path":"main.go","line":1,"diff_side":"RIGHT","comments":[]}]
 	}`
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
@@ -48,6 +48,9 @@ func TestLoadFixtureData(t *testing.T) {
 	}
 	if len(fixture.Threads) != 1 || !fixture.Threads[0].IsResolved {
 		t.Fatalf("expected resolved thread to be decoded, got %+v", fixture.Threads)
+	}
+	if !fixture.Threads[0].IsPending {
+		t.Fatalf("expected pending thread to be decoded, got %+v", fixture.Threads)
 	}
 }
 
@@ -171,9 +174,15 @@ func TestFixtureClientMutatesFixtureStateLocally(t *testing.T) {
 	if len(fixture.Threads) != 2 {
 		t.Fatalf("len(Threads) = %d, want 2", len(fixture.Threads))
 	}
+	if !fixture.Threads[1].IsPending {
+		t.Fatal("expected newly added thread to be pending")
+	}
 
 	if err := client.ReplyToThread("thread-1", "reply body"); err != nil {
 		t.Fatalf("ReplyToThread: %v", err)
+	}
+	if !fixture.Threads[0].IsPending {
+		t.Fatal("expected replied thread to become pending")
 	}
 	if got := fixture.Threads[0].Comments[len(fixture.Threads[0].Comments)-1].Body; got != "reply body" {
 		t.Fatalf("reply body = %q, want reply body", got)

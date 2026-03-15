@@ -407,6 +407,10 @@ func (m *Model) handleRightPaneKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.statusMsg = "No thread to resolve. Use 'n' to navigate to a thread."
 			return m, nil
 		}
+		if t.IsPending {
+			m.statusMsg = "Pending review threads cannot be resolved"
+			return m, nil
+		}
 		return m, m.toggleResolveCmd(t)
 
 	case key.Matches(msg, m.keyMap.NextThread):

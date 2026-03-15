@@ -190,6 +190,30 @@ func TestDiffView_WithThreads(t *testing.T) {
 	}
 }
 
+func TestDiffView_View_ShowsPendingThreadLabel(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 40)
+	lines := testDiffLines()
+	threads := []gh.ReviewThread{
+		{
+			ID:        "pending-1",
+			IsPending: true,
+			Path:      "test.go",
+			Line:      2,
+			DiffSide:  gh.DiffSideRight,
+			Comments: []gh.ReviewComment{
+				{ID: "c1", Body: "pending comment", Author: "alice", CreatedAt: "2026-02-24T10:00:00Z"},
+			},
+		},
+	}
+	m.SetContent(lines, threads)
+
+	view := m.View()
+	if !strings.Contains(view, "[pending]") {
+		t.Fatalf("expected pending label in view, got %q", view)
+	}
+}
+
 func TestDiffView_NextThread(t *testing.T) {
 	m := NewDiffViewModel()
 	m.SetSize(80, 40)

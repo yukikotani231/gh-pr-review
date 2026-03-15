@@ -27,6 +27,9 @@ var (
 	unresolvedStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("1"))
 
+	pendingStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("214")).Bold(true)
+
 	threadHighlightStyle = lipgloss.NewStyle().
 				Background(lipgloss.Color("236"))
 
@@ -569,9 +572,12 @@ func (m *DiffViewModel) renderThread(t gh.ReviewThread, tidx int) []displayRow {
 
 	// Thread status
 	var statusLabel string
-	if t.IsResolved {
+	switch {
+	case t.IsPending:
+		statusLabel = pendingStyle.Render(" [pending]")
+	case t.IsResolved:
 		statusLabel = resolvedStyle.Render(" [resolved]")
-	} else {
+	default:
 		statusLabel = unresolvedStyle.Render(" [unresolved]")
 	}
 

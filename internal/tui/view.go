@@ -46,9 +46,13 @@ func (m Model) renderHeader() string {
 		m.fileList.ViewedCount(), len(m.pr.Files))
 
 	threadCount := m.unresolvedThreadCount()
+	pendingCount := m.pendingThreadCount()
 	var threadInfo string
 	if threadCount > 0 {
 		threadInfo = fmt.Sprintf(", %d unresolved", threadCount)
+	}
+	if pendingCount > 0 {
+		threadInfo += fmt.Sprintf(", %d pending", pendingCount)
 	}
 
 	title := fmt.Sprintf(" PR #%d: %s  (+%d -%d, %d files, %s%s)",

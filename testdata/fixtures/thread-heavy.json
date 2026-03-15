@@ -85,6 +85,21 @@
           "created_at": "2026-03-11T09:13:00Z"
         }
       ]
+    },
+    {
+      "id": "RT_demo_threads_pending_1",
+      "is_pending": true,
+      "path": "internal/tui/comment_panel.go",
+      "line": 32,
+      "diff_side": "RIGHT",
+      "comments": [
+        {
+          "id": "RC_demo_threads_pending_1",
+          "body": "Pending review comment preview.",
+          "author": "you",
+          "created_at": "2026-03-11T09:14:00Z"
+        }
+      ]
     }
   ],
   "open_prs": [

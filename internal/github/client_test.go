@@ -142,16 +142,16 @@ func TestDiffResult_Fields(t *testing.T) {
 
 func TestGraphQLQueryStrings_NonEmpty(t *testing.T) {
 	queries := map[string]string{
-		"prFilesQuery":              prFilesQuery,
-		"markFileAsViewedMutation":  markFileAsViewedMutation,
+		"prFilesQuery":               prFilesQuery,
+		"markFileAsViewedMutation":   markFileAsViewedMutation,
 		"unmarkFileAsViewedMutation": unmarkFileAsViewedMutation,
-		"reviewThreadsQuery":        reviewThreadsQuery,
-		"addReviewCommentMutation":  addReviewCommentMutation,
-		"replyToThreadMutation":     replyToThreadMutation,
-		"resolveThreadMutation":     resolveThreadMutation,
-		"unresolveThreadMutation":   unresolveThreadMutation,
-		"submitReviewMutation":      submitReviewMutation,
-		"openPRsQuery":              openPRsQuery,
+		"reviewThreadsQuery":         reviewThreadsQuery,
+		"addReviewCommentMutation":   addReviewCommentMutation,
+		"replyToThreadMutation":      replyToThreadMutation,
+		"resolveThreadMutation":      resolveThreadMutation,
+		"unresolveThreadMutation":    unresolveThreadMutation,
+		"submitReviewMutation":       submitReviewMutation,
+		"openPRsQuery":               openPRsQuery,
 	}
 
 	for name, q := range queries {
@@ -433,6 +433,17 @@ func TestFetchDiffs_Error(t *testing.T) {
 func TestFetchReviewThreads_SinglePage(t *testing.T) {
 	gql := &mockGraphQL{
 		DoFunc: func(query string, variables map[string]interface{}, response interface{}) error {
+			if strings.Contains(query, "reviews(first: 100, states: PENDING)") {
+				return respondJSON(response, `{
+					"Repository": {
+						"PullRequest": {
+							"Reviews": {
+								"Nodes": []
+							}
+						}
+					}
+				}`)
+			}
 			return respondJSON(response, `{
 				"Repository": {
 					"PullRequest": {
@@ -497,6 +508,17 @@ func TestFetchReviewThreads_MultiPage(t *testing.T) {
 	callCount := 0
 	gql := &mockGraphQL{
 		DoFunc: func(query string, variables map[string]interface{}, response interface{}) error {
+			if strings.Contains(query, "reviews(first: 100, states: PENDING)") {
+				return respondJSON(response, `{
+					"Repository": {
+						"PullRequest": {
+							"Reviews": {
+								"Nodes": []
+							}
+						}
+					}
+				}`)
+			}
 			callCount++
 			if callCount == 1 {
 				return respondJSON(response, `{
@@ -543,6 +565,17 @@ func TestFetchReviewThreads_MultiPage(t *testing.T) {
 func TestFetchReviewThreads_Empty(t *testing.T) {
 	gql := &mockGraphQL{
 		DoFunc: func(query string, variables map[string]interface{}, response interface{}) error {
+			if strings.Contains(query, "reviews(first: 100, states: PENDING)") {
+				return respondJSON(response, `{
+					"Repository": {
+						"PullRequest": {
+							"Reviews": {
+								"Nodes": []
+							}
+						}
+					}
+				}`)
+			}
 			return respondJSON(response, `{
 				"Repository": {
 					"PullRequest": {
@@ -580,6 +613,63 @@ func TestFetchReviewThreads_Error(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "レビュースレッドの取得に失敗") {
 		t.Errorf("error = %q, want containing 'レビュースレッドの取得に失敗'", err.Error())
+	}
+}
+
+func TestFetchReviewThreads_IncludesPendingReviewComments(t *testing.T) {
+	gql := &mockGraphQL{
+		DoFunc: func(query string, variables map[string]interface{}, response interface{}) error {
+			if strings.Contains(query, "reviewThreads(first: 100") {
+				return respondJSON(response, `{
+					"Repository": {
+						"PullRequest": {
+							"ReviewThreads": {
+								"PageInfo": {"HasNextPage": false, "EndCursor": ""},
+								"Nodes": []
+							}
+						}
+					}
+				}`)
+			}
+			return respondJSON(response, `{
+				"Repository": {
+					"PullRequest": {
+						"Reviews": {
+							"Nodes": [{
+								"ID": "PRR_1",
+								"Comments": {
+									"Nodes": [
+										{"ID": "C_1", "Body": "pending root", "Path": "main.go", "Line": 12, "DiffSide": "RIGHT", "CreatedAt": "2026-01-01T00:00:00Z", "Author": {"Login": "alice"}, "ReplyTo": null},
+										{"ID": "C_2", "Body": "pending reply", "Path": "main.go", "Line": 12, "DiffSide": "RIGHT", "CreatedAt": "2026-01-01T01:00:00Z", "Author": {"Login": "bob"}, "ReplyTo": {"ID": "C_1"}}
+									]
+								}
+							}]
+						}
+					}
+				}
+			}`)
+		},
+	}
+	c := newTestClient(gql, nil)
+
+	threads, err := c.FetchReviewThreads(1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(threads) != 1 {
+		t.Fatalf("len(threads) = %d, want 1", len(threads))
+	}
+	if !threads[0].IsPending {
+		t.Fatal("expected pending thread")
+	}
+	if threads[0].Path != "main.go" || threads[0].Line != 12 || threads[0].DiffSide != DiffSideRight {
+		t.Fatalf("unexpected pending thread location: %+v", threads[0])
+	}
+	if len(threads[0].Comments) != 2 {
+		t.Fatalf("len(Comments) = %d, want 2", len(threads[0].Comments))
+	}
+	if threads[0].Comments[1].Body != "pending reply" {
+		t.Fatalf("reply body = %q, want pending reply", threads[0].Comments[1].Body)
 	}
 }
 

@@ -78,6 +78,36 @@ query($owner: String!, $repo: String!, $number: Int!, $after: String) {
 }
 `
 
+const pendingReviewCommentsQuery = `
+query($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      reviews(first: 100, states: PENDING) {
+        nodes {
+          id
+          comments(first: 100) {
+            nodes {
+              id
+              body
+              path
+              line
+              diffSide
+              createdAt
+              author {
+                login
+              }
+              replyTo {
+                id
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+`
+
 const addReviewCommentMutation = `
 mutation($pullRequestId: ID!, $body: String!, $path: String!, $line: Int!, $side: DiffSide!) {
   addPullRequestReview(input: {

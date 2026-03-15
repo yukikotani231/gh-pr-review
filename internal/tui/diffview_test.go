@@ -359,6 +359,15 @@ func TestDiffView_ToggleMode_Split(t *testing.T) {
 	if !strings.Contains(view, "old line2") || !strings.Contains(view, "new line2") {
 		t.Fatalf("split view should contain both sides of changed line, got %q", view)
 	}
+	if !strings.Contains(view, "-    2 old line2") {
+		t.Fatalf("split view should show removed marker column, got %q", view)
+	}
+	if !strings.Contains(view, "+    2 new line2") {
+		t.Fatalf("split view should show added marker column, got %q", view)
+	}
+	if strings.Contains(view, "-old line2") || strings.Contains(view, "+new line2") {
+		t.Fatalf("split view should drop inline diff prefixes inside cells, got %q", view)
+	}
 }
 
 func TestDiffView_SetMode(t *testing.T) {
@@ -407,6 +416,18 @@ func TestDiffView_SplitBecomesAvailableAtReducedThreshold(t *testing.T) {
 	}
 	if got := m.ModeLabel(); got != "[split]" {
 		t.Fatalf("ModeLabel() = %q, want [split]", got)
+	}
+}
+
+func TestDiffView_SplitHunkHeaderKeepsHeaderText(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(testDiffLines(), nil)
+
+	m.ToggleMode()
+	view := m.View()
+	if !strings.Contains(view, "@@ -1,5 +1,6 @@") {
+		t.Fatalf("split hunk header missing from view: %q", view)
 	}
 }
 

@@ -511,6 +511,32 @@ func TestDiffView_SplitMoveUpSkipsSharedDisplayRow(t *testing.T) {
 	}
 }
 
+func TestDiffView_SplitMoveDownSkipsMultiLineSharedRows(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(testDiffLinesMultipleChanges(), nil)
+	m.ToggleMode()
+
+	m.cursor = 3 // second removed line
+	m.MoveDown()
+	if m.cursor != 6 {
+		t.Fatalf("cursor = %d, want 6 to move to next visual row after shared block", m.cursor)
+	}
+}
+
+func TestDiffView_SplitMoveUpSkipsMultiLineSharedRows(t *testing.T) {
+	m := NewDiffViewModel()
+	m.SetSize(80, 20)
+	m.SetContent(testDiffLinesMultipleChanges(), nil)
+	m.ToggleMode()
+
+	m.cursor = 4 // first added line
+	m.MoveUp()
+	if m.cursor != 1 {
+		t.Fatalf("cursor = %d, want 1 to move to previous visual row before shared block", m.cursor)
+	}
+}
+
 func TestDiffView_ToggleMode_ClampsScroll(t *testing.T) {
 	m := NewDiffViewModel()
 	m.SetSize(80, 3)

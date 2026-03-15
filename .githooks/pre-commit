@@ -4,13 +4,18 @@ set -eu
 repo_root=$(git rev-parse --show-toplevel)
 cd "$repo_root"
 
-staged_go_lines=$(git diff --cached --name-only --diff-filter=ACMR -- '*.go')
-if [ -n "$staged_go_lines" ]; then
-  unstaged_go_lines=$(git diff --name-only -- '*.go')
-  overlapping_go_files=$(printf '%s\n' "$staged_go_lines" | grep -Fxf - <<EOF || true
-$unstaged_go_lines
-EOF
-)
+staged_go_files=$(mktemp)
+unstaged_go_files=$(mktemp)
+staged_go_lines=$(mktemp)
+unstaged_go_lines=$(mktemp)
+trap 'rm -f "$staged_go_files" "$unstaged_go_files" "$staged_go_lines" "$unstaged_go_lines"' EXIT INT TERM HUP
+
+git diff --cached --name-only -z --diff-filter=ACMR -- '*.go' >"$staged_go_files"
+if [ -s "$staged_go_files" ]; then
+  git diff --name-only -z -- '*.go' >"$unstaged_go_files"
+  tr '\0' '\n' <"$staged_go_files" >"$staged_go_lines"
+  tr '\0' '\n' <"$unstaged_go_files" >"$unstaged_go_lines"
+  overlapping_go_files=$(grep -Fxf "$staged_go_lines" "$unstaged_go_lines" || true)
   if [ -n "$overlapping_go_files" ]; then
     echo "Refusing to run gofmt because these staged Go files also have unstaged changes:" >&2
     printf '%s\n' "$overlapping_go_files" >&2
@@ -18,10 +23,8 @@ EOF
   fi
 
   echo "Running gofmt on staged Go files..."
-  # shellcheck disable=SC2086
-  gofmt -w $staged_go_lines
-  # shellcheck disable=SC2086
-  git add -- $staged_go_lines
+  xargs -0 -n 1 gofmt -w <"$staged_go_files"
+  xargs -0 -n 1 git add -- <"$staged_go_files"
 fi
 
 echo "Running go test..."
